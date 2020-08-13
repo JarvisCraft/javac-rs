@@ -1,0 +1,7 @@
+[workspaces]
+
+members = [
+    "javac-rs-ast",
+    "javac-rs-parser",
+    "javac-rs-cli",
+]
