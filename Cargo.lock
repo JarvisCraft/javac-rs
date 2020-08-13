@@ -12,6 +12,7 @@ version = "0.1.0"
 name = "javac-rs-parser"
 version = "0.1.0"
 dependencies = [
+ "javac-rs-ast",
  "peg",
 ]
 
