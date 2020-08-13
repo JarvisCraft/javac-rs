@@ -1,4 +1,4 @@
-[workspaces]
+[workspace]
 
 members = [
     "javac-rs-ast",
