@@ -3,8 +3,21 @@ use javac_rs_ast::Node;
 
 pub use peg;
 use std::fmt::Error;
+use std::num::ParseIntError;
 
 pub type ParseError = peg::error::ParseError<peg::str::LineCol>;
+
+/*
+macro_rules! number {
+    ($result_name:ident, $expression:expr) => {
+        digits:$(hex_digit() (digit_separator()* hex_digit()+)*)
+    };
+}
+ */
+
+fn mapped_int_parse_result(result: Result<i32, ParseIntError>) -> Result<i32, String> {
+    result.map_err(|error| { error.to_string() })
+}
 
 // TODO remove unneeded pub's
 peg::parser! {
@@ -50,22 +63,22 @@ peg::parser! {
         pub rule digit_separator() = "_"
 
         /// Number of type `int`
-        pub rule int_number() -> i64
+        pub rule int_number() -> i32
                 = (
                     hex_bumber_prefix()
                     digits:$(hex_digit() (digit_separator()* hex_digit()+)*)
-                    { u64::from_str_radix(digits.replace('_', "").as_str(), 16).unwrap() as i64 }
+                    { u32::from_str_radix(digits.replace('_', "").as_str(), 16).unwrap() as i32 }
                 ) / (
                     binary_bumber_prefix()
                     digits:$(binary_digit() (digit_separator()* binary_digit()+)*)
-                    { u64::from_str_radix(digits.replace('_', "").as_str(), 2).unwrap() as i64 }
+                    { u32::from_str_radix(digits.replace('_', "").as_str(), 2).unwrap() as i32 }
                 ) / (
                     octal_bumber_prefix()
                     digits:$(octal_digit() (digit_separator()* octal_digit()+)*)
-                    { u64::from_str_radix(digits.replace('_', "").as_str(), 8).unwrap() as i64 }
+                    { u32::from_str_radix(digits.replace('_', "").as_str(), 8).unwrap() as i32 }
                 ) / (
                     digits:$(decimal_digit() (digit_separator()* decimal_digit()+)*)
-                    { u64::from_str_radix(digits.replace('_', "").as_str(), 10).unwrap() as i64 }
+                    { u32::from_str_radix(digits.replace('_', "").as_str(), 10).unwrap() as i32 }
                 )
 
         /// Number of type `long`
@@ -73,7 +86,7 @@ peg::parser! {
                 = number:((
                     hex_bumber_prefix()
                     digits:$(hex_digit() (digit_separator()* hex_digit()+)*)
-                    { u64::from_str_radix(digits.replace('_', "").as_str(), 16).unwrap() as i64 }
+                    { println!("n={}", digits);u64::from_str_radix(digits.replace('_', "").as_str(), 16).unwrap() as i64 }
                 ) / (
                     binary_bumber_prefix()
                     digits:$(binary_digit() (digit_separator()* binary_digit()+)*)
@@ -93,6 +106,45 @@ peg::parser! {
 mod tests {
     use javac_rs_ast::Node;
     use crate::parser::java;
+
+    #[test]
+    fn int_hex_number() {
+        assert_eq!(java::int_number("0x0"), Ok(0x0));
+        assert_eq!(java::int_number("0x00"), Ok(0x00));
+        assert_eq!(java::int_number("0x0000"), Ok(0x0000));
+        assert_eq!(java::int_number("0xCA_FE"), Ok(0xCAFE));
+        assert_eq!(java::int_number("0xCAFE"), Ok(0xCAFE));
+        assert_eq!(java::int_number("0xFaceB00c"), Ok(0xFaceB00cu32 as i32));
+        assert_eq!(java::int_number("0xFace_B00c"), Ok(0xFace_B00Cu32 as i32));
+        assert_eq!(java::int_number("0xCAFEBABE_DEADBEEF"), Ok(0xCAFEBABEu32 as i32));
+    }
+
+    #[test]
+    fn int_binary_number() {
+        assert_eq!(java::int_number("0b0"), Ok(0b0));
+        assert_eq!(java::int_number("0b00"), Ok(0b00));
+        assert_eq!(java::int_number("0b0000"), Ok(0b0000));
+        assert_eq!(java::int_number("0b1010010101010"), Ok(0b1010010101010));
+        assert_eq!(java::int_number("0b1111111111"), Ok(0b1111111111));
+    }
+
+    #[test]
+    fn int_octal_number() {
+        assert_eq!(java::int_number("00"), Ok(0o0));
+        assert_eq!(java::int_number("000"), Ok(0o00));
+        assert_eq!(java::int_number("00000"), Ok(0o0000));
+        assert_eq!(java::int_number("01201241"), Ok(0o1201241));
+        assert_eq!(java::int_number("01020143176"), Ok(0o1020143176));
+    }
+
+    #[test]
+    fn int_decimal_number() {
+        assert_eq!(java::int_number("0"), Ok(0));
+        assert_eq!(java::int_number("1"), Ok(1));
+        assert_eq!(java::int_number("9752"), Ok(9752));
+        assert_eq!(java::int_number("97521254"), Ok(97521254));
+        assert_eq!(java::int_number("1013957130"), Ok(1013957130));
+    }
 
     #[test]
     fn long_hex_number() {
@@ -131,10 +183,5 @@ mod tests {
         assert_eq!(java::long_number("9752L"), Ok(9752));
         assert_eq!(java::long_number("97521254L"), Ok(97521254));
         assert_eq!(java::long_number("11057130957130L"), Ok(11057130957130));
-    }
-
-    #[test]
-    fn it_works() {
-        assert_eq!(i64::from_str_radix("CAFEBABE", 16).unwrap(), 0xCAFEBABEi64);
     }
 }
