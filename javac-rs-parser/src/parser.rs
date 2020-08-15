@@ -21,6 +21,7 @@ fn mapped_int_parse_result(result: Result<i32, ParseIntError>) -> Result<i32, St
 
 // TODO remove unneeded pub's
 peg::parser! {
+    /// Java language grammar as specified by [JLS](https://docs.oracle.com/javase/specs/)
     pub grammar java() for str {
 
         // Basic lexical objects not bound to AST-nodes
@@ -42,13 +43,13 @@ peg::parser! {
                 = slice:$(['0'..='9' | 'A'..='F' | 'a'..='f']) { slice.chars().next().unwrap() }
 
         /// Prefix of a binary number
-        pub rule binary_bumber_prefix() = "0b"
+        pub rule binary_number_prefix() = "0b"
 
         /// Prefix of an octal number
-        pub rule octal_bumber_prefix() = "0"
+        pub rule octal_number_prefix() = "0"
 
         /// Prefix of a hex number
-        pub rule hex_bumber_prefix() = "0x"
+        pub rule hex_number_prefix() = "0x"
 
         /// Suffix of `long` number
         pub rule long_number_suffix() = ['L' | 'l']
@@ -62,41 +63,55 @@ peg::parser! {
         /// Optional separator of digits in numbers
         pub rule digit_separator() = "_"
 
+        /// Sequence of specified digits with optional
+        /// non-trailing [digit separators](digit_separator.
+        /// 
+        /// # Arguments
+        ///
+        /// * `digit` - rule matching valid number digits
+        rule number(digit: rule<char>) -> &'input str = $(digit() (digit_separator()* digit()+)*)
+
+        /// [Hex](hex_digit) [number](number)
+        rule hex_number() -> &'input str = number(<hex_digit()>)
+
+        /// [Decimal](decimal_digit) [number](number)
+        rule decimal_number() -> &'input str = number(<decimal_digit()>)
+
+        /// [Octal](octal_digit) [number](number)
+        rule octal_number() -> &'input str = number(<octal_digit()>)
+
+        /// [Binary](binary_digit) [number](number)
+        rule binary_number() -> &'input str = number(<binary_digit()>)
+
         /// Number of type `int`
         pub rule int_number() -> i32
                 = (
-                    hex_bumber_prefix()
-                    digits:$(hex_digit() (digit_separator()* hex_digit()+)*)
+                    hex_number_prefix() digits:hex_number()
                     { u32::from_str_radix(digits.replace('_', "").as_str(), 16).unwrap() as i32 }
                 ) / (
-                    binary_bumber_prefix()
-                    digits:$(binary_digit() (digit_separator()* binary_digit()+)*)
+                    binary_number_prefix() digits:binary_number()
                     { u32::from_str_radix(digits.replace('_', "").as_str(), 2).unwrap() as i32 }
                 ) / (
-                    octal_bumber_prefix()
-                    digits:$(octal_digit() (digit_separator()* octal_digit()+)*)
+                    octal_number_prefix() digits:octal_number()
                     { u32::from_str_radix(digits.replace('_', "").as_str(), 8).unwrap() as i32 }
                 ) / (
-                    digits:$(decimal_digit() (digit_separator()* decimal_digit()+)*)
+                    digits:decimal_number()
                     { u32::from_str_radix(digits.replace('_', "").as_str(), 10).unwrap() as i32 }
                 )
 
         /// Number of type `long`
         pub rule long_number() -> i64
                 = number:((
-                    hex_bumber_prefix()
-                    digits:$(hex_digit() (digit_separator()* hex_digit()+)*)
-                    { println!("n={}", digits);u64::from_str_radix(digits.replace('_', "").as_str(), 16).unwrap() as i64 }
+                    hex_number_prefix() digits:hex_number()
+                    { u64::from_str_radix(digits.replace('_', "").as_str(), 16).unwrap() as i64 }
                 ) / (
-                    binary_bumber_prefix()
-                    digits:$(binary_digit() (digit_separator()* binary_digit()+)*)
+                    binary_number_prefix() digits:binary_number()
                     { u64::from_str_radix(digits.replace('_', "").as_str(), 2).unwrap() as i64 }
                 ) / (
-                    octal_bumber_prefix()
-                    digits:$(octal_digit() (digit_separator()* octal_digit()+)*)
+                    octal_number_prefix() digits:octal_number()
                     { u64::from_str_radix(digits.replace('_', "").as_str(), 8).unwrap() as i64 }
                 ) / (
-                    digits:$(decimal_digit() (digit_separator()* decimal_digit()+)*)
+                    digits:decimal_number()
                     { u64::from_str_radix(digits.replace('_', "").as_str(), 10).unwrap() as i64 }
                 )) long_number_suffix() { number }
     }
