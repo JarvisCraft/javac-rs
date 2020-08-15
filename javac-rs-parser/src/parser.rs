@@ -1,19 +1,6 @@
 pub use peg;
-use std::num::ParseIntError;
 
 pub type ParseError = peg::error::ParseError<peg::str::LineCol>;
-
-/*
-macro_rules! number {
-    ($result_name:ident, $expression:expr) => {
-        digits:$(hex_digit() (digit_separator()* hex_digit()+)*)
-    };
-}
- */
-
-fn mapped_int_parse_result(result: Result<i32, ParseIntError>) -> Result<i32, String> {
-    result.map_err(|error| { error.to_string() })
-}
 
 // TODO remove unneeded pub's
 peg::parser! {
@@ -61,7 +48,7 @@ peg::parser! {
 
         /// Sequence of specified digits with optional
         /// non-trailing [digit separators](digit_separator.
-        /// 
+        ///
         /// # Arguments
         ///
         /// * `digit` - rule matching valid number digits
@@ -81,35 +68,37 @@ peg::parser! {
 
         /// Number of type `int`
         pub rule int_number() -> i32
-                = (
-                    hex_number_prefix() digits:hex_number()
-                    { u32::from_str_radix(digits.replace('_', "").as_str(), 16).unwrap() as i32 }
-                ) / (
-                    binary_number_prefix() digits:binary_number()
-                    { u32::from_str_radix(digits.replace('_', "").as_str(), 2).unwrap() as i32 }
-                ) / (
-                    octal_number_prefix() digits:octal_number()
-                    { u32::from_str_radix(digits.replace('_', "").as_str(), 8).unwrap() as i32 }
-                ) / (
-                    digits:decimal_number()
-                    { u32::from_str_radix(digits.replace('_', "").as_str(), 10).unwrap() as i32 }
-                )
+                = (hex_number_prefix() digits:hex_number() {
+                    u32::from_str_radix(digits.replace('_', "").as_str(), 16)
+                    .map(|value| {value as i32}).unwrap()
+                }) / (binary_number_prefix() digits:binary_number() {
+                    u32::from_str_radix(digits.replace('_', "").as_str(), 2)
+                    .map(|value| {value as i32}).unwrap()
+                }) / (octal_number_prefix() digits:octal_number() {
+                    u32::from_str_radix(digits.replace('_', "").as_str(), 8)
+                    .map(|value| {value as i32}).unwrap()
+                }) / (digits:decimal_number() {
+                    u32::from_str_radix(digits.replace('_', "").as_str(), 10)
+                    .map(|value| {value as i32}).unwrap()
+                })
 
         /// Number of type `long`
         pub rule long_number() -> i64
-                = number:((
-                    hex_number_prefix() digits:hex_number()
-                    { u64::from_str_radix(digits.replace('_', "").as_str(), 16).unwrap() as i64 }
-                ) / (
-                    binary_number_prefix() digits:binary_number()
-                    { u64::from_str_radix(digits.replace('_', "").as_str(), 2).unwrap() as i64 }
-                ) / (
-                    octal_number_prefix() digits:octal_number()
-                    { u64::from_str_radix(digits.replace('_', "").as_str(), 8).unwrap() as i64 }
-                ) / (
-                    digits:decimal_number()
-                    { u64::from_str_radix(digits.replace('_', "").as_str(), 10).unwrap() as i64 }
-                )) long_number_suffix() { number }
+                = number:(
+                    (hex_number_prefix() digits:hex_number() {
+                        u64::from_str_radix(digits.replace('_', "").as_str(), 16)
+                        .map(|value| {value as i64}).unwrap()
+                    }) / (binary_number_prefix() digits:binary_number() {
+                        u64::from_str_radix(digits.replace('_', "").as_str(), 2)
+                        .map(|value| {value as i64}).unwrap()
+                    }) / (octal_number_prefix() digits:octal_number() {
+                        u64::from_str_radix(digits.replace('_', "").as_str(), 8)
+                        .map(|value| {value as i64}).unwrap()
+                    }) / (digits:decimal_number() {
+                        u64::from_str_radix(digits.replace('_', "").as_str(), 10)
+                        .map(|value| {value as i64}).unwrap()
+                    })
+                ) long_number_suffix() { number }
     }
 }
 
@@ -126,7 +115,10 @@ mod tests {
         assert_eq!(java::int_number("0xCAFE"), Ok(0xCAFE));
         assert_eq!(java::int_number("0xFaceB00c"), Ok(0xFaceB00cu32 as i32));
         assert_eq!(java::int_number("0xFace_B00c"), Ok(0xFace_B00Cu32 as i32));
-        assert_eq!(java::int_number("0xCAFEBABE_DEADBEEF"), Ok(0xCAFEBABEu32 as i32));
+        assert_eq!(
+            java::int_number("0xCAFEBABE_DEADBEEF"),
+            Ok(0xCAFEBABEu32 as i32)
+        );
     }
 
     #[test]
@@ -165,7 +157,10 @@ mod tests {
         assert_eq!(java::long_number("0xFace_B00cL"), Ok(0xFace_B00C));
         assert_eq!(java::long_number("0xCAFEBABEDEADL"), Ok(0xCAFEBABEDEAD));
         assert_eq!(java::long_number("0xCAFE_BABE_DEADL"), Ok(0xCAFE_BABE_DEAD));
-        assert_eq!(java::long_number("0xCAFEBABE_DEADBEEFL"), Ok(0xCAFEBABE_DEADBEEFu64 as i64));
+        assert_eq!(
+            java::long_number("0xCAFEBABE_DEADBEEFL"),
+            Ok(0xCAFEBABE_DEADBEEFu64 as i64)
+        );
     }
 
     #[test]
