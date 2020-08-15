@@ -1,8 +1,4 @@
-use peg::ParseLiteral;
-use javac_rs_ast::Node;
-
 pub use peg;
-use std::fmt::Error;
 use std::num::ParseIntError;
 
 pub type ParseError = peg::error::ParseError<peg::str::LineCol>;
@@ -119,7 +115,6 @@ peg::parser! {
 
 #[cfg(test)]
 mod tests {
-    use javac_rs_ast::Node;
     use crate::parser::java;
 
     #[test]
