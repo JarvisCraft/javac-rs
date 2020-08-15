@@ -29,13 +29,13 @@ peg::parser! {
                 = slice:$(['0'..='9' | 'A'..='F' | 'a'..='f']) { slice.chars().next().unwrap() }
 
         /// Prefix of a binary number
-        pub rule binary_number_prefix() = "0b"
+        pub rule binary_number_prefix() = "0" ['B' | 'b']
 
         /// Prefix of an octal number
         pub rule octal_number_prefix() = "0"
 
         /// Prefix of a hex number
-        pub rule hex_number_prefix() = "0x"
+        pub rule hex_number_prefix() = "0" ['X' | 'x']
 
         /// Suffix of `long` number
         pub rule long_number_suffix() = ['L' | 'l']
