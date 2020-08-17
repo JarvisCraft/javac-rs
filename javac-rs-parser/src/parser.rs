@@ -188,7 +188,7 @@ peg::parser! {
             / (binary_number_prefix() digits:binary_number() { parse_number_i64(digits, 2) })
             / (octal_number_prefix() digits:octal_number() { parse_number_i64(digits, 8) })
             / (digits:decimal_number() { parse_number_i64(digits, 10) })
-        )
+        ) long_number_suffix() { number }
 
         /// Number of type `float`
         pub rule float_number() -> Result<f32, ParseError> = number:(
@@ -436,7 +436,7 @@ mod tests {
         assert_float_number_ok!(1.2E3);
         assert_float_number_ok!(1.2213E-7);
         assert_float_number_ok!(0.1248762174E-99);
-        assert_float_number_ok!(12.34e+7f32);
+        assert_float_number_ok!("12.34e+7", 12.34e+7f32);
     }
 
     #[test]
