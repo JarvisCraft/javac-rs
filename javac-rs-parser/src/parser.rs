@@ -32,9 +32,10 @@ impl From<ParseFloatError> for ParseError {
     fn from(error: ParseFloatError) -> Self { ParseError::new(error.to_string()) }
 }
 
-fn parse_number_i32(digits: &str, radix: u32) -> Result<i32, std::num::ParseIntError> {
+fn parse_number_i32(digits: &str, radix: u32) -> Result<i32, ParseError> {
     u32::from_str_radix(digits.replace('_', "").as_str(), radix)
         .map(|value| { value as i32 })
+        .map_err(|error| { error.into() })
 }
 
 fn parse_number_i64(digits: &str, radix: u32) -> Result<i64, ParseError> {
@@ -43,7 +44,7 @@ fn parse_number_i64(digits: &str, radix: u32) -> Result<i64, ParseError> {
         .map_err(|error| { error.into() })
 }
 
-fn parse_number_f32(digits: &str, radix: u32) -> Result<f32, ParseError> {
+fn parse_number_f32(digits: &str) -> Result<f32, ParseError> {
     digits.replace('_', "")
         .parse::<f32>()
         .map_err(|error| { error.into() })
@@ -53,6 +54,24 @@ fn parse_number_f64(digits: &str) -> Result<f64, ParseError> {
     digits.replace('_', "")
         .parse::<f64>()
         .map_err(|error| { error.into() })
+}
+
+fn parse_number_from_parts_f32(integer_digits: Option<&str>,
+                               decimal_digits: Option<&str>,
+                               exponent_digits: Option<&str>,
+                               radix: u32) -> Result<f32, ParseError> {
+    format!(
+        "{}.{}e{}",
+        integer_digits.map_or(Ok(0), |digits| {
+            i64::from_str_radix(digits, radix)
+        })?,
+        decimal_digits.map_or(Ok(0), |digits| {
+            i64::from_str_radix(digits, radix)
+        })?,
+        exponent_digits.map_or(Ok(0), |digits| {
+            i64::from_str_radix(digits, radix)
+        })?
+    ).parse::<f32>().map_err(|error| { error.into() })
 }
 
 fn parse_number_from_parts_f64(integer_digits: Option<&str>,
@@ -161,7 +180,7 @@ peg::parser! {
             / (binary_number_prefix() digits:binary_number() { parse_number_i32(digits, 2) })
             / (octal_number_prefix() digits:octal_number() { parse_number_i32(digits, 8) })
             / (digits:decimal_number() { parse_number_i32(digits, 10)})
-        ) { number.map_err(|error| { error.into() }) }
+        )
 
         /// Number of type `long`
         pub rule long_number() -> Result<i64, ParseError> = number:(
@@ -169,7 +188,43 @@ peg::parser! {
             / (binary_number_prefix() digits:binary_number() { parse_number_i64(digits, 2) })
             / (octal_number_prefix() digits:octal_number() { parse_number_i64(digits, 8) })
             / (digits:decimal_number() { parse_number_i64(digits, 10) })
-        ) long_number_suffix() { number.map_err(|error| { error.into() }) }
+        )
+
+        /// Number of type `float`
+        pub rule float_number() -> Result<f32, ParseError> = number:(
+            (number:(
+                (
+                    hex_number_prefix()
+                    digits:((
+                        integer_digits:hex_number()?
+                        decimal_separator()
+                        fractional_digits:(number:hex_number() { Some(number) })
+                        { (integer_digits, fractional_digits) }
+                    ) / (
+                        integer_digits:hex_number()
+                        decimal_separator()
+                        fractional_digits:(number:hex_number())?
+                        { (Some(integer_digits), fractional_digits) }
+                    ))
+                    hex_exponent_indicator() exponent:signed_number()
+                    { parse_number_from_parts_f32(digits.0, digits.1, Some(exponent), 16) }
+                ) / (
+                    digits:((
+                        integer_digits:decimal_number()?
+                        decimal_separator()
+                        fractional_digits:(number:decimal_number() { Some(number) })
+                        { (integer_digits, fractional_digits) }
+                    ) / (
+                        integer_digits:decimal_number()
+                        decimal_separator()
+                        fractional_digits:(number:decimal_number())?
+                        { (Some(integer_digits), fractional_digits) }
+                    ))
+                    exponent:(decimal_exponent_indicator() exponent:signed_number() { exponent })?
+                    { parse_number_from_parts_f32(digits.0, digits.1, exponent, 10) }
+                )
+            ) { number }) / number:(digits:decimal_number(){ parse_number_f32(digits) }) { number }
+        ) float_number_suffix() { number }
 
         /// Number of type `double`
         pub rule double_number() -> Result<f64, ParseError> = (
@@ -366,6 +421,69 @@ mod tests {
         assert_long_number_err!(format!("{}0L", i64::MAX).as_str());
     }
 
+    macro_rules! assert_float_number_ok {
+        ($code:expr, $literal:expr) => {
+            assert_eq!(java::float_number($code).unwrap(), Ok($literal));
+        };
+        ($literal:expr) => {
+            assert_float_number_ok!(concat!(stringify!($literal), "f"), $literal);
+            assert_float_number_ok!(concat!(stringify!($literal), "F"), $literal);
+        };
+    }
+
+    #[test]
+    fn float_decimal_e_number() {
+        assert_float_number_ok!(1.2E3);
+        assert_float_number_ok!(1.2213E-7);
+        assert_float_number_ok!(0.1248762174E-99);
+        assert_float_number_ok!(12.34e+7f32);
+    }
+
+    #[test]
+    fn float_hex_e_number() {
+        assert_float_number_ok!("0xA.Bp1", 10.11e1);
+        assert_float_number_ok!("0xA.Bp1d", 10.11e1);
+        assert_float_number_ok!("0xA.Bp1D", 10.11e1);
+
+        assert_float_number_ok!("0x2D.Fp+5", 45.15e+5);
+        assert_float_number_ok!("0x2D.Fp+5d", 45.15e+5);
+        assert_float_number_ok!("0x2D.Fp+5D", 45.15e+5);
+    }
+
+    #[test]
+    fn float_point_number() {
+        assert_float_number_ok!(0.123);
+        assert_float_number_ok!(7498127648197589127581591285789175921.12879491749812748291742948);
+
+        assert_float_number_ok!(890.);
+        assert_float_number_ok!(281937128947128921.);
+
+        assert_float_number_ok!(".4567", 0.4567);
+        assert_float_number_ok!(".4567d", 0.4567);
+        assert_float_number_ok!(".4567D", 0.4567);
+        assert_float_number_ok!(".9126408217658921659821658210", 0.9126408217658921659821658210);
+        assert_float_number_ok!(".9126408217658921659821658210d", 0.9126408217658921659821658210);
+        assert_float_number_ok!(".9126408217658921659821658210D", 0.9126408217658921659821658210);
+    }
+
+    #[test]
+    fn float_prefix_number() {
+        assert_float_number_ok!("0d", 0f32);
+        assert_float_number_ok!("0D", 0f32);
+
+        assert_float_number_ok!("000d", 0f32);
+        assert_float_number_ok!("000D", 0f32);
+
+        assert_float_number_ok!("123d", 123f32);
+        assert_float_number_ok!("123D", 123f32);
+
+        assert_float_number_ok!("123d", 123f32);
+        assert_float_number_ok!("123D", 123f32);
+
+        assert_float_number_ok!("9999999999999999999999999999f", 9999999999999999999999999999f32);
+        assert_float_number_ok!("9999999999999999999999999999F", 9999999999999999999999999999f32);
+    }
+
     macro_rules! assert_double_number_ok {
         ($code:expr, $literal:expr) => {
             assert_eq!(java::double_number($code).unwrap(), Ok($literal));
@@ -374,12 +492,6 @@ mod tests {
             assert_double_number_ok!(stringify!($literal), $literal);
             assert_double_number_ok!(concat!(stringify!($literal), "d"), $literal);
             assert_double_number_ok!(concat!(stringify!($literal), "D"), $literal);
-        };
-    }
-
-    macro_rules! assert_double_number_err {
-        ($code:expr) => {
-            assert!(matches!(java::double_number($code).unwrap(), Err(_)));
         };
     }
 
