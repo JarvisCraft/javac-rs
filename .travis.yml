@@ -1,0 +1,22 @@
+# Specify primary repository language
+language: rust
+
+# Boost build by caching dependencies
+# see: https://docs.travis-ci.com/user/languages/rust/#dependency-management
+cache: cargo
+
+# Install all Rust channels to test against experimental ones
+rust:
+  - stable
+  - beta
+  - nightly
+
+before_script:
+  # Install rustfmt to use it for source-code verification
+  - rustup component add rustfmt
+
+# Main script to be used for verification
+script:
+  - cargo build --workspace
+  - cargo test --workspace
+  - cargo fmt -- --check
