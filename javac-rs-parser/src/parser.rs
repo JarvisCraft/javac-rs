@@ -1,13 +1,11 @@
 pub use peg;
-use std::num::{ParseFloatError, ParseIntError};
 use std::error::Error;
 use std::fmt::Formatter;
-
-//pub type ParseError = peg::error::ParseError<peg::str::LineCol>;
+use std::num::{ParseFloatError, ParseIntError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseError {
-    description: String
+    description: String,
 }
 
 impl ParseError {
@@ -25,71 +23,73 @@ impl std::fmt::Display for ParseError {
 impl Error for ParseError {}
 
 impl From<ParseIntError> for ParseError {
-    fn from(error: ParseIntError) -> Self { ParseError::new(error.to_string()) }
+    fn from(error: ParseIntError) -> Self {
+        ParseError::new(error.to_string())
+    }
 }
 
 impl From<ParseFloatError> for ParseError {
-    fn from(error: ParseFloatError) -> Self { ParseError::new(error.to_string()) }
+    fn from(error: ParseFloatError) -> Self {
+        ParseError::new(error.to_string())
+    }
 }
 
 fn parse_number_i32(digits: &str, radix: u32) -> Result<i32, ParseError> {
     u32::from_str_radix(digits.replace('_', "").as_str(), radix)
-        .map(|value| { value as i32 })
-        .map_err(|error| { error.into() })
+        .map(|value| value as i32)
+        .map_err(|error| error.into())
 }
 
 fn parse_number_i64(digits: &str, radix: u32) -> Result<i64, ParseError> {
     u64::from_str_radix(digits.replace('_', "").as_str(), radix)
-        .map(|value| { value as i64 })
-        .map_err(|error| { error.into() })
+        .map(|value| value as i64)
+        .map_err(|error| error.into())
 }
 
 fn parse_number_f32(digits: &str) -> Result<f32, ParseError> {
-    digits.replace('_', "")
+    digits
+        .replace('_', "")
         .parse::<f32>()
-        .map_err(|error| { error.into() })
+        .map_err(|error| error.into())
 }
 
 fn parse_number_f64(digits: &str) -> Result<f64, ParseError> {
-    digits.replace('_', "")
+    digits
+        .replace('_', "")
         .parse::<f64>()
-        .map_err(|error| { error.into() })
+        .map_err(|error| error.into())
 }
 
-fn parse_number_from_parts_f32(integer_digits: Option<&str>,
-                               decimal_digits: Option<&str>,
-                               exponent_digits: Option<&str>,
-                               radix: u32) -> Result<f32, ParseError> {
+fn parse_f32_from_parts(
+    integer_digits: Option<&str>,
+    decimal_digits: Option<&str>,
+    exponent_digits: Option<&str>,
+    radix: u32,
+) -> Result<f32, ParseError> {
     format!(
         "{}.{}e{}",
-        integer_digits.map_or(Ok(0), |digits| {
-            i64::from_str_radix(digits, radix)
-        })?,
-        decimal_digits.map_or(Ok(0), |digits| {
-            i64::from_str_radix(digits, radix)
-        })?,
-        exponent_digits.map_or(Ok(0), |digits| {
-            i64::from_str_radix(digits, radix)
-        })?
-    ).parse::<f32>().map_err(|error| { error.into() })
+        integer_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
+        decimal_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
+        exponent_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?
+    )
+    .parse::<f32>()
+    .map_err(|error| error.into())
 }
 
-fn parse_number_from_parts_f64(integer_digits: Option<&str>,
-                               decimal_digits: Option<&str>,
-                               exponent_digits: Option<&str>,
-                               radix: u32) -> Result<f64, ParseError> {
+fn parse_f64_from_parts(
+    integer_digits: Option<&str>,
+    decimal_digits: Option<&str>,
+    exponent_digits: Option<&str>,
+    radix: u32,
+) -> Result<f64, ParseError> {
     format!(
         "{}.{}e{}",
-        integer_digits.map_or(Ok(0), |digits| {
-            i64::from_str_radix(digits, radix)
-        })?,
-        decimal_digits.map_or(Ok(0), |digits| {
-            i64::from_str_radix(digits, radix)
-        })?,
-        exponent_digits.map_or(Ok(0), |digits| {
-            i64::from_str_radix(digits, radix)
-        })?
-    ).parse::<f64>().map_err(|error| { error.into() })
+        integer_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
+        decimal_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
+        exponent_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?
+    )
+    .parse::<f64>()
+    .map_err(|error| error.into())
 }
 
 // TODO remove unneeded pub's
@@ -152,7 +152,7 @@ peg::parser! {
         pub rule decimal_separator() = "."
 
         /// Sequence of specified digits with optional
-        /// non-trailing [digit separators](digit_separator.
+        /// non-trailing [digit separators](digit_separator).
         ///
         /// # Arguments
         ///
@@ -190,38 +190,40 @@ peg::parser! {
             / (digits:decimal_number() { parse_number_i64(digits, 10) })
         ) long_number_suffix() { number }
 
+        /// Sequence corresponding to a floating point number's
+        /// significand consisting of integer and decimal parts
+        /// delimited with a [decimal separators](decimal_separator).
+        ///
+        /// # Arguments
+        ///
+        /// * `number` - rule matching valid number for significand's integer and decinal parts
+        rule float_number_significand(number: rule<&'input str>)
+            -> (Option<&'input str>, Option<&'input str>) = (
+                integer_digits:number()? decimal_separator() fractional_digits:number()
+                { (integer_digits, Some(fractional_digits)) }
+            ) / (
+                integer_digits:number() decimal_separator() fractional_digits:(number())?
+                { (Some(integer_digits), fractional_digits) }
+            );
+
+        rule float_number_hex_significand() -> (Option<&'input str>, Option<&'input str>)
+            = float_number_significand(<hex_number()>)
+
+        rule float_number_decimal_significand() -> (Option<&'input str>, Option<&'input str>)
+            = float_number_significand(<decimal_number()>)
+
         /// Number of type `float`
         pub rule float_number() -> Result<f32, ParseError> = number:(
             (number:(
                 (
                     hex_number_prefix()
-                    digits:((
-                        integer_digits:hex_number()?
-                        decimal_separator()
-                        fractional_digits:(number:hex_number() { Some(number) })
-                        { (integer_digits, fractional_digits) }
-                    ) / (
-                        integer_digits:hex_number()
-                        decimal_separator()
-                        fractional_digits:(number:hex_number())?
-                        { (Some(integer_digits), fractional_digits) }
-                    ))
+                    significand:float_number_hex_significand()
                     hex_exponent_indicator() exponent:signed_number()
-                    { parse_number_from_parts_f32(digits.0, digits.1, Some(exponent), 16) }
+                    { parse_f32_from_parts(significand.0, significand.1, Some(exponent), 16) }
                 ) / (
-                    digits:((
-                        integer_digits:decimal_number()?
-                        decimal_separator()
-                        fractional_digits:(number:decimal_number() { Some(number) })
-                        { (integer_digits, fractional_digits) }
-                    ) / (
-                        integer_digits:decimal_number()
-                        decimal_separator()
-                        fractional_digits:(number:decimal_number())?
-                        { (Some(integer_digits), fractional_digits) }
-                    ))
+                    significand:float_number_decimal_significand()
                     exponent:(decimal_exponent_indicator() exponent:signed_number() { exponent })?
-                    { parse_number_from_parts_f32(digits.0, digits.1, exponent, 10) }
+                    { parse_f32_from_parts(significand.0, significand.1, exponent, 10) }
                 )
             ) { number }) / number:(digits:decimal_number(){ parse_number_f32(digits) }) { number }
         ) float_number_suffix() { number }
@@ -231,33 +233,13 @@ peg::parser! {
             (number:(
                 (
                     hex_number_prefix()
-                    digits:((
-                        integer_digits:hex_number()?
-                        decimal_separator()
-                        fractional_digits:(number:hex_number() { Some(number) })
-                        { (integer_digits, fractional_digits) }
-                    ) / (
-                        integer_digits:hex_number()
-                        decimal_separator()
-                        fractional_digits:(number:hex_number())?
-                        { (Some(integer_digits), fractional_digits) }
-                    ))
+                    significand:float_number_hex_significand()
                     hex_exponent_indicator() exponent:signed_number()
-                    { parse_number_from_parts_f64(digits.0, digits.1, Some(exponent), 16) }
+                    { parse_f64_from_parts(significand.0, significand.1, Some(exponent), 16) }
                 ) / (
-                    digits:((
-                        integer_digits:decimal_number()?
-                        decimal_separator()
-                        fractional_digits:(number:decimal_number() { Some(number) })
-                        { (integer_digits, fractional_digits) }
-                    ) / (
-                        integer_digits:decimal_number()
-                        decimal_separator()
-                        fractional_digits:(number:decimal_number())?
-                        { (Some(integer_digits), fractional_digits) }
-                    ))
+                    significand:float_number_decimal_significand()
                     exponent:(decimal_exponent_indicator() exponent:signed_number() { exponent })?
-                    { parse_number_from_parts_f64(digits.0, digits.1, exponent, 10) }
+                    { parse_f64_from_parts(significand.0, significand.1, exponent, 10) }
                 )
             ) double_number_suffix()? { number }) / (
                 digits:decimal_number() double_number_suffix()
@@ -385,7 +367,7 @@ mod tests {
         assert_long_number_ok!("0b1111111111L", 0b1111111111);
         assert_long_number_ok!(
             "0b1111111111111111111111111111111111111111111111111111111111111111L",
-             0b1111111111111111111111111111111111111111111111111111111111111111u64 as i64
+            0b1111111111111111111111111111111111111111111111111111111111111111u64 as i64
         );
 
         assert_long_number_err!(
@@ -478,8 +460,14 @@ mod tests {
         assert_float_number_ok!("123f", 123f32);
         assert_float_number_ok!("123F", 123f32);
 
-        assert_float_number_ok!("9999999999999999999999999999f", 9999999999999999999999999999f32);
-        assert_float_number_ok!("9999999999999999999999999999F", 9999999999999999999999999999f32);
+        assert_float_number_ok!(
+            "9999999999999999999999999999f",
+            9999999999999999999999999999f32
+        );
+        assert_float_number_ok!(
+            "9999999999999999999999999999F",
+            9999999999999999999999999999f32
+        );
     }
 
     macro_rules! assert_double_number_ok {
@@ -525,6 +513,7 @@ mod tests {
         assert_double_number_ok!(".4567", 0.4567);
         assert_double_number_ok!(".4567d", 0.4567);
         assert_double_number_ok!(".4567D", 0.4567);
+
         assert_double_number_ok!(".912640821765892160", 0.912640821765892160);
         assert_double_number_ok!(".912640821765892160d", 0.912640821765892160);
         assert_double_number_ok!(".912640821765892160D", 0.912640821765892160);
@@ -544,7 +533,13 @@ mod tests {
         assert_double_number_ok!("123d", 123f64);
         assert_double_number_ok!("123D", 123f64);
 
-        assert_double_number_ok!("9999999999999999999999999999d", 9999999999999999999999999999f64);
-        assert_double_number_ok!("9999999999999999999999999999D", 9999999999999999999999999999f64);
+        assert_double_number_ok!(
+            "9999999999999999999999999999d",
+            9999999999999999999999999999f64
+        );
+        assert_double_number_ok!(
+            "9999999999999999999999999999D",
+            9999999999999999999999999999f64
+        );
     }
 }
