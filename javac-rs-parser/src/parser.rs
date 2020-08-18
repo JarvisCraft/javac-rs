@@ -1,3 +1,4 @@
+pub use javac_rs_ast::ast;
 pub use peg;
 use std::error::Error;
 use std::fmt::Formatter;
@@ -72,8 +73,8 @@ fn parse_f32_from_parts(
         decimal_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
         exponent_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?
     )
-    .parse::<f32>()
-    .map_err(|error| error.into())
+        .parse::<f32>()
+        .map_err(|error| error.into())
 }
 
 fn parse_f64_from_parts(
@@ -88,8 +89,8 @@ fn parse_f64_from_parts(
         decimal_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
         exponent_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?
     )
-    .parse::<f64>()
-    .map_err(|error| error.into())
+        .parse::<f64>()
+        .map_err(|error| error.into())
 }
 
 // TODO remove unneeded pub's
@@ -246,6 +247,44 @@ peg::parser! {
                 { parse_number_f64(digits) }
             )
         )
+
+        /// Boolean value i.e. `true` or `false`
+        pub rule boolean_value() -> ast::Boolean = "true" { true } / "false" { false }
+
+        /// Simply `null` also known as billion-dollar mistake
+        pub rule null() = "null";
+
+        // TODO better error handling instead of `unwrap()`
+
+        /// Literal of type `int`
+        pub rule int_literal() -> ast::Expression = value:int_number() {
+            ast::Expression::Literal(ast::Literal::Int(value.unwrap()))
+        }
+
+        /// Literal of type `long`
+        pub rule long_literal() -> ast::Expression = value:long_number() {
+            ast::Expression::Literal(ast::Literal::Long(value.unwrap()))
+        }
+
+        /// Literal of type `float`
+        pub rule float_literal() -> ast::Expression = value:float_number() {
+            ast::Expression::Literal(ast::Literal::Float(value.unwrap()))
+        }
+
+        /// Literal of type `double`
+        pub rule double_literal() -> ast::Expression = value:double_number() {
+            ast::Expression::Literal(ast::Literal::Double(value.unwrap()))
+        }
+
+        /// Literal of type `boolean`
+        pub rule boolean_literal() -> ast::Expression = value:boolean_value() {
+            ast::Expression::Literal(ast::Literal::Boolean(value))
+        }
+
+        /// `null` literal
+        pub rule null_literal() -> ast::Expression = null() {
+            ast::Expression::Literal(ast::Literal::Null)
+        }
     }
 }
 
