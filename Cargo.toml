@@ -3,5 +3,7 @@
 members = [
     "javac-rs-ast",
     "javac-rs-parser",
+    "javac-rs-classfile",
+    "javac-rs-compiler",
     "javac-rs-cli",
 ]

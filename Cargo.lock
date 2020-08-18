@@ -5,7 +5,15 @@ name = "javac-rs-ast"
 version = "0.1.0"
 
 [[package]]
+name = "javac-rs-classfile"
+version = "0.1.0"
+
+[[package]]
 name = "javac-rs-cli"
+version = "0.1.0"
+
+[[package]]
+name = "javac-rs-compiler"
 version = "0.1.0"
 
 [[package]]

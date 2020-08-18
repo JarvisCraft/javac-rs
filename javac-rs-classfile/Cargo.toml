@@ -1,0 +1,9 @@
+[package]
+name = "javac-rs-classfile"
+version = "0.1.0"
+authors = ["progrm_jarvis <gh@progrm-jarvis.ru>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
