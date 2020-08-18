@@ -1,19 +1,19 @@
 /// Java `boolean` type
-type Boolean = bool;
+pub type Boolean = bool;
 /// Java `byte` type
-type Byte = i8;
+pub type Byte = i8;
 /// Java `short` type
-type Short = i16;
+pub type Short = i16;
 /// Java `char` type
-type Char = u16;
+pub type Char = u16;
 /// Java `int` type
-type Int = i32;
+pub type Int = i32;
 /// Java `long` type
-type Long = i64;
+pub type Long = i64;
 /// Java `float` type
-type Float = f32;
+pub type Float = f32;
 /// Java `double` type
-type Double = f64;
+pub type Double = f64;
 
 /// Java [literal](https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html#jls-3.10)
 pub enum Literal {
