@@ -9,7 +9,7 @@ type Char = u16;
 /// Java `int` type
 type Int = i32;
 /// Java `long` type
-type Long = i32;
+type Long = i64;
 /// Java `float` type
 type Float = f32;
 /// Java `double` type
