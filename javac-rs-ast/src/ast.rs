@@ -17,10 +17,6 @@ type Double = f64;
 
 /// Java [literal](https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html#jls-3.10)
 pub enum Literal {
-    /// `null` literal
-    Null,
-    /// Literal of `boolean` type
-    Boolean(Boolean),
     /// Literal of `int` type
     Int(Int),
     /// Literal of `long` type
@@ -29,6 +25,14 @@ pub enum Literal {
     Float(Float),
     /// Literal of `double` type
     Double(Double),
+    /// Literal of `boolean` type
+    Boolean(Boolean),
+    /// Literal of `char` type
+    Char(Char),
+    /// Literal of `double` type
+    String(String),
+    /// `null` literal
+    Null,
 }
 
 /// A Java expression in source code AST
