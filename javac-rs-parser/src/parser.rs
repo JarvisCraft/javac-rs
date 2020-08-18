@@ -152,6 +152,14 @@ peg::parser! {
         /// Separator of integer and fractional parts of numbers
         pub rule decimal_separator() = "."
 
+        /// A character which does not require escaping in char literals
+        pub rule not_escaped_char_symbol() -> char
+            = character:$(!['\\' | '\''][_]) { character.chars().next().unwrap() };
+
+        pub rule escape_sequence() -> ast::Char
+            = "b" { 0x0008 } / "t" { 0x0009 } / "n" { 0x000a } / "f" { 0x000c }
+            / "r" { 0x000d } / "\"" { 0x0022 } / "'" { 0x0027 } / "\\" { 0x005c }
+
         /// Sequence of specified digits with optional
         /// non-trailing [digit separators](digit_separator).
         ///
@@ -248,11 +256,29 @@ peg::parser! {
             )
         )
 
+        pub rule character_value() -> ast::Char = (
+            "'" value:(
+                value:("\\" value:(
+                    (
+                        "u" digits:$(hex_digit()*<4,4>)
+                        { ast::Char::from_str_radix(digits, 16).unwrap() }
+                    )
+                    / (
+                        digits:($(['0'..='3'] octal_digit() octal_digit()) / $(octal_digit()*<1,2>))
+                        { ast::Char::from_str_radix(digits, 8).unwrap() }
+                    ) / (value:escape_sequence() { value })
+                ) { value }) { value }
+                / value:not_escaped_char_symbol() { value as ast::Char }
+            ) "'" { value }
+        )
+
         /// Boolean value i.e. `true` or `false`
         pub rule boolean_value() -> ast::Boolean = "true" { true } / "false" { false }
 
         /// Simply `null` also known as billion-dollar mistake
         pub rule null() = "null";
+
+        // Literals as AST Expressions
 
         // TODO better error handling instead of `unwrap()`
 
@@ -279,6 +305,11 @@ peg::parser! {
         /// Literal of type `boolean`
         pub rule boolean_literal() -> ast::Expression = value:boolean_value() {
             ast::Expression::Literal(ast::Literal::Boolean(value))
+        }
+
+        /// Literal of type `char`
+        pub rule char_literal() -> ast::Expression = value:character_value() {
+            ast::Expression::Literal(ast::Literal::Char(value))
         }
 
         /// `null` literal
@@ -580,5 +611,59 @@ mod tests {
             "9999999999999999999999999999D",
             9999999999999999999999999999f64
         );
+    }
+
+    macro_rules! assert_character_value_ok {
+        ($code:expr, $literal:expr) => {
+            assert_eq!(java::character_value($code).unwrap(), $literal as u16);
+        };
+        ($literal:expr) => {
+            assert_character_value_ok!(stringify!($literal), $literal);
+        };
+    }
+
+    #[test]
+    fn char_raw() {
+        assert_character_value_ok!('0');
+        assert_character_value_ok!('5');
+        assert_character_value_ok!('a');
+        assert_character_value_ok!('z');
+        assert_character_value_ok!('A');
+        assert_character_value_ok!('Z');
+        assert_character_value_ok!('_');
+        assert_character_value_ok!('+');
+        assert_character_value_ok!('-');
+        assert_character_value_ok!('*');
+        assert_character_value_ok!('/');
+        assert_character_value_ok!(' ');
+    }
+
+    #[test]
+    fn char_octal() {
+        assert_character_value_ok!('\0');
+        assert_character_value_ok!("'\\123'", 0o123u16);
+        assert_character_value_ok!("'\\372'", 0o372u16);
+        assert_character_value_ok!("'\\22'", 0o22u16);
+        assert_character_value_ok!("'\\77'", 0o77u16);
+    }
+
+    #[test]
+    fn char_unicode() {
+        assert_character_value_ok!("'\\u1000'", '\u{1000}');
+        assert_character_value_ok!("'\\u1234'", '\u{1234}');
+        assert_character_value_ok!("'\\u9999'", '\u{9999}');
+        assert_character_value_ok!("'\\u0123'", '\u{123}');
+    }
+
+    #[test]
+    fn char_escaped() {
+        assert_character_value_ok!("'\\b'", '\u{8}');
+        assert_character_value_ok!("'\\t'", '\u{9}');
+        assert_character_value_ok!("'\\n'", '\u{a}');
+        assert_character_value_ok!("'\\f'", '\u{c}');
+        assert_character_value_ok!("'\\r'", '\u{d}');
+        assert_character_value_ok!("'\\\"'", '\u{22}');
+        assert_character_value_ok!("'\\''", '\u{27}');
+        assert_character_value_ok!("'\\\\'", '\u{5c}');
     }
 }
