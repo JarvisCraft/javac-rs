@@ -73,8 +73,8 @@ fn parse_f32_from_parts(
         decimal_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
         exponent_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?
     )
-        .parse::<f32>()
-        .map_err(|error| error.into())
+    .parse::<f32>()
+    .map_err(|error| error.into())
 }
 
 fn parse_f64_from_parts(
@@ -89,8 +89,8 @@ fn parse_f64_from_parts(
         decimal_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
         exponent_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?
     )
-        .parse::<f64>()
-        .map_err(|error| error.into())
+    .parse::<f64>()
+    .map_err(|error| error.into())
 }
 
 // TODO remove unneeded pub's
