@@ -12,11 +12,14 @@ rust:
   - nightly
 
 before_script:
-  # Install rustfmt to use it for source-code verification
-  - rustup component add rustfmt
+  # Install rustfmt and clippy to use them for code verification
+  - rustup component add rustfmt clippy
 
 # Main script to be used for verification
 script:
   - cargo build --workspace
   - cargo test --workspace
   - cargo fmt -- --check
+  - >-
+    cargo clippy --all-targets --all-features
+    -- -W clippy::all -W clippy::pedantic -W clippy::restriction -W clippy::nursery -D warnings
