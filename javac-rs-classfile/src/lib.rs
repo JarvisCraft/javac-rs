@@ -1,2 +1,3 @@
-mod flag;
 mod defs;
+mod flag;
+mod vec;
