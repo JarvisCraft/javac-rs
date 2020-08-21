@@ -90,11 +90,4 @@ macro_rules! mask_flags {
             fn is_set(&self, flag: &$flag_name) -> bool { self.0 & flag.mask() != $default }
         }
     };
-    ($flag_name:ident as $number:ty=$default:expr, $flags_name:ident => {$(
-        $key:ident=$value:expr,
-    )*}) => {
-        mask_flags!(pub $flag_name as $number=$default, $flags_name => {
-            $($key=$value,)*
-        });
-    }
 }
