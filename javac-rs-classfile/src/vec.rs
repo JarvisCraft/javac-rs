@@ -16,6 +16,7 @@ macro_rules! impl_size_limited_vec {
 }
 
 impl_size_limited_vec! {
+    JvmVecU1(JvmVecU1Size = u8)
     JvmVecU2(JvmVecU2Size = u16)
     JvmVecU4(JvmVecU4Size = u32)
 }
