@@ -68,7 +68,7 @@ macro_rules! mask_flags {
         impl $flag_name {
             fn mask(&self) -> $number {
                 match self {$(
-                    $flag_name::$key => { $value },
+                    Self::$key => { $value },
                 )*}
             }
         }
