@@ -5,6 +5,7 @@ macro_rules! impl_size_limited_vec {
     ($($name:ident($size_name:ident=$size_type:ident))*) => {$(
         pub type $size_name = $size_type;
 
+        #[derive(::std::cmp::Eq, ::std::cmp::PartialEq)]
         pub struct $name<T>(::std::vec::Vec<T>);
 
         impl<T> ::std::ops::Deref for $name<T> {
