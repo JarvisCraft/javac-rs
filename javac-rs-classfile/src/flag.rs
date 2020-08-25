@@ -53,13 +53,18 @@ impl<T: Eq + Hash> Flags<T> for HashSetFlags<T> {
     }
 }
 
-// TODO: add docs, preserve meta
 #[macro_export]
 macro_rules! mask_flags {
-    ($visibility:vis $flag_name:ident as $number:ty=$default:expr, $flags_name:ident => {$(
-        $key:ident=$value:expr,
-    )*}) => {
-        #[derive(PartialEq, Eq, Debug)]
+    (
+        $(#$flag_attribute:tt)*
+        $visibility:vis $flag_name:ident as $number:ty=$default:expr;
+
+        $(#$flags_attribute:tt)*
+        $flags_name:ident => {$(
+            $key:ident=$value:expr,
+        )*}
+    ) => {
+        $(#$flag_attribute)*
         $visibility enum $flag_name {$(
             $key,
         )*}
@@ -72,7 +77,7 @@ macro_rules! mask_flags {
             }
         }
 
-        #[derive(PartialEq, Eq, Debug)]
+        $(#$flags_attribute)*
         $visibility struct $flags_name($number);
 
         impl $flags_name {
