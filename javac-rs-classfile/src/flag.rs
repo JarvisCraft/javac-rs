@@ -36,7 +36,6 @@ impl<T: Eq + Hash> HashSetFlags<T> {
 }
 
 impl<T: Eq + Hash> Flags<T> for HashSetFlags<T> {
-    /// Creates an iterator over flags set to `true`.
     fn none() -> Self {
         Self(HashSet::new())
     }
