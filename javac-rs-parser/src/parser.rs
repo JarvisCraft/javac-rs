@@ -40,9 +40,9 @@ where
 {
     format!(
         "{}.{}e{}",
-        integer_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix,))?,
-        decimal_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix,))?,
-        exponent_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix,))?
+        integer_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
+        decimal_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
+        exponent_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?
     )
     .parse::<N>()
     .map_err(|error| error.into())
@@ -238,37 +238,37 @@ peg::parser! {
         // TODO better error handling instead of `unwrap()`
 
         /// Literal of type `int`
-        pub rule int_literal() -> ast::Expression = value:int_number() {
+        pub rule int_literal_expression() -> ast::Expression = value:int_number() {
             ast::Expression::Literal(ast::Literal::Int(value.unwrap()))
         }
 
         /// Literal of type `long`
-        pub rule long_literal() -> ast::Expression = value:long_number() {
+        pub rule long_literal_expression() -> ast::Expression = value:long_number() {
             ast::Expression::Literal(ast::Literal::Long(value.unwrap()))
         }
 
         /// Literal of type `float`
-        pub rule float_literal() -> ast::Expression = value:float_number() {
+        pub rule float_literal_expression() -> ast::Expression = value:float_number() {
             ast::Expression::Literal(ast::Literal::Float(value.unwrap()))
         }
 
         /// Literal of type `double`
-        pub rule double_literal() -> ast::Expression = value:double_number() {
+        pub rule double_literal_expression() -> ast::Expression = value:double_number() {
             ast::Expression::Literal(ast::Literal::Double(value.unwrap()))
         }
 
         /// Literal of type `boolean`
-        pub rule boolean_literal() -> ast::Expression = value:boolean_value() {
+        pub rule boolean_literal_expression() -> ast::Expression = value:boolean_value() {
             ast::Expression::Literal(ast::Literal::Boolean(value))
         }
 
         /// Literal of type `char`
-        pub rule char_literal() -> ast::Expression = value:character_value() {
+        pub rule char_literal_expression() -> ast::Expression = value:character_value() {
             ast::Expression::Literal(ast::Literal::Char(value))
         }
 
         /// `null` literal
-        pub rule null_literal() -> ast::Expression = null() {
+        pub rule null_literal_expression() -> ast::Expression = null() {
             ast::Expression::Literal(ast::Literal::Null)
         }
 
@@ -281,11 +281,12 @@ peg::parser! {
 
         rule line_terminator() = "\n\r" / ['\n' | '\r']
 
-        rule _() = [' ' | '\t' | '\u{C}'] / line_terminator()();
+        rule _() = [' ' | '\t' | '\u{C}'] / line_terminator();
 
         /// Keyword name as specified by
         /// [JLS 3.9](https://docs.oracle.com/javase/specs/jls/se15/html/jls-3.html#jls-3.9)
-        pub rule keyword() -> ast::Keyword = keyword:(
+        rule keyword() -> ast::Keyword = keyword:(
+        //<editor-fold desc="List of keywords" defaultstate="collapsed">
                 "abstract" { ast::Keyword::Abstract }
                 / "assert" { ast::Keyword::Assert }
                 / "boolean" { ast::Keyword::Boolean }
@@ -340,7 +341,12 @@ peg::parser! {
                 / "void" { ast::Keyword::Void }
                 / "volatile" { ast::Keyword::Volatile }
                 / "while" { ast::Keyword::While }
+        //</editor-fold>
         ) !identifier_symbol() { keyword }
+
+        pub rule keyword_expression() -> ast::Expression = value:keyword() {
+            ast::Expression::Keyword(value)
+        }
 
         rule identifier_raw() = quiet! {
                 !keyword() first_identifier_symbol() (identifier_symbol())*
@@ -350,7 +356,7 @@ peg::parser! {
             identifier.into()
         }
 
-        pub rule identifier() -> ast::Expression = value:identifier_name() {
+        pub rule identifier_expression() -> ast::Expression = value:identifier_name() {
             ast::Expression::Identifier(value)
         }
     }
@@ -358,460 +364,501 @@ peg::parser! {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::java;
     use crate::parser::ast;
+    use crate::parser::java;
 
-    macro_rules! assert_int_number_ok {
-        ($code:expr, $literal:expr) => {
-            assert_eq!(java::int_number($code).unwrap(), Ok($literal));
-        };
-        ($literal:expr) => {
-            assert_int_number_ok!(stringify!($literal), $literal);
-        };
+    mod int {
+        use super::*;
+
+        macro_rules! assert_int_number_ok {
+            ($code:expr, $literal:expr) => {
+                assert_eq!(
+                    java::int_literal_expression($code),
+                    Ok(ast::Expression::Literal(ast::Literal::Int($literal)))
+                );
+            };
+            ($literal:expr) => {
+                assert_int_number_ok!(stringify!($literal), $literal);
+            };
+        }
+
+        macro_rules! assert_int_number_err {
+            ($code:expr) => {
+                assert!(java::int_number($code).unwrap().is_err());
+            };
+        }
+
+        #[test]
+        fn int_hex_number() {
+            assert_int_number_ok!(0x0);
+            assert_int_number_ok!(0x00);
+            assert_int_number_ok!(0x0000);
+            assert_int_number_ok!(0xCAFE);
+            assert_int_number_ok!(0xCAFE);
+            assert_int_number_ok!("0xFaceB00c", 0xFaceB00cu32 as i32);
+            assert_int_number_ok!("0xFace_B00c", 0xFace_B00Cu32 as i32);
+            assert_int_number_ok!("0xCAFEBABE", 0xCAFEBABEu32 as i32);
+            assert_int_number_ok!("0xFFFFFFFF", 0xFFFFFFFFu32 as i32);
+
+            assert_int_number_err!("0x100000000");
+            assert_int_number_err!("0xCAFEBABE0");
+            assert_int_number_err!("0xBABEBABEBABEBABE");
+        }
+
+        #[test]
+        fn int_binary_number() {
+            assert_int_number_ok!(0b0);
+            assert_int_number_ok!(0b00);
+            assert_int_number_ok!(0b0000);
+            assert_int_number_ok!(0b1010010101010);
+            assert_int_number_ok!(0b1111111111);
+            assert_int_number_ok!(
+                "0b11111111111111111111111111111111",
+                0b11111111111111111111111111111111u32 as i32
+            );
+
+            assert_int_number_err!("0b100000000000000000000000000000001");
+            assert_int_number_err!("0b100001000010010010000111000010001");
+        }
+
+        #[test]
+        fn int_octal_number() {
+            assert_int_number_ok!("00", 0o0);
+            assert_int_number_ok!("000", 0o00);
+            assert_int_number_ok!("00000", 0o0000);
+            assert_int_number_ok!("01201241", 0o1201241);
+            assert_int_number_ok!("01020143176", 0o1020143176);
+            assert_int_number_ok!("037777777777", 0o37777777777u32 as i32);
+
+            assert_int_number_err!("047777777777");
+        }
+
+        #[test]
+        fn int_decimal_number() {
+            assert_int_number_ok!(0);
+            assert_int_number_ok!(1);
+            assert_int_number_ok!(9752);
+            assert_int_number_ok!(97521254);
+            // Note: the number will be a negative integer equal to
+            assert_int_number_ok!("2147483648", 2147483648u32 as i32);
+            assert_int_number_ok!("2147483648", i32::MIN);
+
+            assert_int_number_ok!(i32::MAX.to_string().as_str(), i32::MAX);
+            assert_int_number_err!(format!("{}0", i32::MAX).as_str());
+        }
     }
 
-    macro_rules! assert_int_number_err {
-        ($code:expr) => {
-            assert!(matches!(java::int_number($code).unwrap(), Err(_)));
-        };
+    mod long {
+        use super::*;
+
+        macro_rules! assert_long_number_ok {
+            ($code:expr, $literal:expr) => {
+                assert_eq!(java::long_number($code).unwrap(), Ok($literal));
+            };
+            ($literal:expr) => {
+                assert_long_number_ok!(stringify!($literal), $literal);
+                assert_long_number_ok!(concat!(stringify!($literal), "l"), $literal);
+                assert_long_number_ok!(concat!(stringify!($literal), "L"), $literal);
+            };
+        }
+
+        macro_rules! assert_long_number_err {
+            ($code:expr) => {
+                assert!(java::long_number($code).unwrap().is_err());
+            };
+        }
+
+        #[test]
+        fn long_hex_number() {
+            assert_long_number_ok!("0x0L", 0x0);
+            assert_long_number_ok!("0x00L", 0x00);
+            assert_long_number_ok!("0x0000L", 0x0000);
+            assert_long_number_ok!("0xFaceB00cL", 0xFaceB00c);
+            assert_long_number_ok!("0xFace_B00cL", 0xFace_B00C);
+            assert_long_number_ok!("0xCAFEBABEDEADL", 0xCAFEBABEDEAD);
+            assert_long_number_ok!("0xCAFE_BABE_DEADL", 0xCAFE_BABE_DEAD);
+            assert_long_number_ok!("0xCAFEBABE_DEADBEEFL", 0xCAFEBABE_DEADBEEFu64 as i64);
+
+            assert_long_number_err!("0xCAFEBABE_DEADBEEFFL");
+        }
+
+        #[test]
+        fn long_binary_number() {
+            assert_long_number_ok!("0b0L", 0b0);
+            assert_long_number_ok!("0b00L", 0b00);
+            assert_long_number_ok!("0b0000L", 0b0000);
+            assert_long_number_ok!("0b1010010101010L", 0b1010010101010);
+            assert_long_number_ok!("0b1111111111L", 0b1111111111);
+            assert_long_number_ok!(
+                "0b1111111111111111111111111111111111111111111111111111111111111111L",
+                0b1111111111111111111111111111111111111111111111111111111111111111u64 as i64
+            );
+
+            assert_long_number_err!(
+                "0b10000000000000000000000000000000000000000000000000000000000000001L"
+            );
+        }
+
+        #[test]
+        fn long_octal_number() {
+            assert_long_number_ok!("00L", 0o0);
+            assert_long_number_ok!("000L", 0o00);
+            assert_long_number_ok!("00000L", 0o0000);
+            assert_long_number_ok!("01201241L", 0o1201241);
+            assert_long_number_ok!("01020143176L", 0o1020143176);
+
+            assert_long_number_ok!("0777777777777777777777L", 0o777777777777777777777u64 as i64);
+
+            assert_long_number_err!("07777777777777777777770L");
+            assert_long_number_err!("07777777777777777777777L");
+        }
+
+        #[test]
+        fn long_decimal_number() {
+            assert_long_number_ok!("0L", 0);
+            assert_long_number_ok!("1L", 1);
+            assert_long_number_ok!("9752L", 9752);
+            assert_long_number_ok!("97521254L", 97521254);
+            assert_long_number_ok!("11057130957130L", 11057130957130);
+            assert_long_number_ok!("9223372036854775808L", 9223372036854775808u64 as i64);
+            assert_long_number_ok!("9223372036854775808L", i64::MIN);
+
+            assert_long_number_ok!("9223372036854775807L", i64::MAX);
+            assert_long_number_err!(format!("{}0L", i64::MAX).as_str());
+        }
     }
 
-    #[test]
-    fn int_hex_number() {
-        assert_int_number_ok!(0x0);
-        assert_int_number_ok!(0x00);
-        assert_int_number_ok!(0x0000);
-        assert_int_number_ok!(0xCAFE);
-        assert_int_number_ok!(0xCAFE);
-        assert_int_number_ok!("0xFaceB00c", 0xFaceB00cu32 as i32);
-        assert_int_number_ok!("0xFace_B00c", 0xFace_B00Cu32 as i32);
-        assert_int_number_ok!("0xCAFEBABE", 0xCAFEBABEu32 as i32);
-        assert_int_number_ok!("0xFFFFFFFF", 0xFFFFFFFFu32 as i32);
+    mod float {
+        use super::*;
 
-        assert_int_number_err!("0x100000000");
-        assert_int_number_err!("0xCAFEBABE0");
-        assert_int_number_err!("0xBABEBABEBABEBABE");
+        macro_rules! assert_float_number_ok {
+            ($code:expr, $literal:expr) => {
+                assert_eq!(java::float_number($code).unwrap(), Ok($literal));
+            };
+            ($literal:expr) => {
+                assert_float_number_ok!(concat!(stringify!($literal), "f"), $literal);
+                assert_float_number_ok!(concat!(stringify!($literal), "F"), $literal);
+            };
+        }
+
+        #[test]
+        fn float_decimal_e_number() {
+            assert_float_number_ok!(1.2E3);
+            assert_float_number_ok!(1.2213E-7);
+            assert_float_number_ok!(0.1248762174E-99);
+            assert_float_number_ok!(12.34e+7);
+            assert_float_number_ok!(12.34e+7);
+        }
+
+        #[test]
+        fn float_hex_e_number() {
+            assert_float_number_ok!("0xA.Bp1f", 10.11e1);
+            assert_float_number_ok!("0xA.Bp1F", 10.11e1);
+
+            assert_float_number_ok!("0x2D.Fp+5f", 45.15e+5);
+            assert_float_number_ok!("0x2D.Fp+5F", 45.15e+5);
+        }
+
+        #[test]
+        fn float_point_number() {
+            assert_float_number_ok!(0.123);
+            // TODO: fix big numerics
+            //assert_float_number_ok!(7498127648197589127581591285789175921.12879491749812748291742948);
+
+            assert_float_number_ok!(890.);
+            assert_float_number_ok!(281937128947128921.);
+
+            assert_float_number_ok!(".4567f", 0.4567);
+            assert_float_number_ok!(".4567F", 0.4567);
+            assert_float_number_ok!(".912640821765892165f", 0.912640821765892165);
+            assert_float_number_ok!(".912640821765892165F", 0.912640821765892165);
+        }
+
+        #[test]
+        fn float_prefix_number() {
+            assert_float_number_ok!("0f", 0f32);
+            assert_float_number_ok!("0F", 0f32);
+
+            assert_float_number_ok!("000f", 0f32);
+            assert_float_number_ok!("000F", 0f32);
+
+            assert_float_number_ok!("123f", 123f32);
+            assert_float_number_ok!("123F", 123f32);
+
+            assert_float_number_ok!("123f", 123f32);
+            assert_float_number_ok!("123F", 123f32);
+
+            assert_float_number_ok!(
+                "9999999999999999999999999999f",
+                9999999999999999999999999999f32
+            );
+            assert_float_number_ok!(
+                "9999999999999999999999999999F",
+                9999999999999999999999999999f32
+            );
+        }
     }
 
-    #[test]
-    fn int_binary_number() {
-        assert_int_number_ok!(0b0);
-        assert_int_number_ok!(0b00);
-        assert_int_number_ok!(0b0000);
-        assert_int_number_ok!(0b1010010101010);
-        assert_int_number_ok!(0b1111111111);
-        assert_int_number_ok!(
-            "0b11111111111111111111111111111111",
-            0b11111111111111111111111111111111u32 as i32
-        );
+    mod double {
+        use super::*;
 
-        assert_int_number_err!("0b100000000000000000000000000000001");
-        assert_int_number_err!("0b100001000010010010000111000010001");
+        macro_rules! assert_double_number_ok {
+            ($code:expr, $literal:expr) => {
+                assert_eq!(java::double_number($code).unwrap(), Ok($literal));
+            };
+            ($literal:expr) => {
+                assert_double_number_ok!(stringify!($literal), $literal);
+                assert_double_number_ok!(concat!(stringify!($literal), "d"), $literal);
+                assert_double_number_ok!(concat!(stringify!($literal), "D"), $literal);
+            };
+        }
+
+        #[test]
+        fn double_decimal_e_number() {
+            assert_double_number_ok!(1.2E3);
+            assert_double_number_ok!(1.2213E-7);
+            assert_double_number_ok!(0.1248762174E-99);
+            assert_double_number_ok!(12.34e+56);
+        }
+
+        #[test]
+        fn double_hex_e_number() {
+            assert_double_number_ok!("0xA.Bp1", 10.11e1);
+            assert_double_number_ok!("0xA.Bp1d", 10.11e1);
+            assert_double_number_ok!("0xA.Bp1D", 10.11e1);
+
+            assert_double_number_ok!("0x2D.Fp+5", 45.15e+5);
+            assert_double_number_ok!("0x2D.Fp+5d", 45.15e+5);
+            assert_double_number_ok!("0x2D.Fp+5D", 45.15e+5);
+        }
+
+        #[test]
+        fn double_point_number() {
+            assert_double_number_ok!(0.123);
+            // TODO: fix big numerics
+            //assert_double_number_ok!(7498127648197589127581591285789175921
+            // .12879491749812748291742948);
+
+            assert_double_number_ok!(890.);
+            // TODO: fix big numerics
+            //assert_double_number_ok!(8217489127849071204702150127592015871
+            // 29057219057291075.);
+
+            assert_double_number_ok!(".4567", 0.4567);
+            assert_double_number_ok!(".4567d", 0.4567);
+            assert_double_number_ok!(".4567D", 0.4567);
+
+            assert_double_number_ok!(".912640821765892160", 0.912640821765892160);
+            assert_double_number_ok!(".912640821765892160d", 0.912640821765892160);
+            assert_double_number_ok!(".912640821765892160D", 0.912640821765892160);
+        }
+
+        #[test]
+        fn double_prefix_number() {
+            assert_double_number_ok!("0d", 0f64);
+            assert_double_number_ok!("0D", 0f64);
+
+            assert_double_number_ok!("000d", 0f64);
+            assert_double_number_ok!("000D", 0f64);
+
+            assert_double_number_ok!("123d", 123f64);
+            assert_double_number_ok!("123D", 123f64);
+
+            assert_double_number_ok!("123d", 123f64);
+            assert_double_number_ok!("123D", 123f64);
+
+            assert_double_number_ok!(
+                "9999999999999999999999999999d",
+                9999999999999999999999999999f64
+            );
+            assert_double_number_ok!(
+                "9999999999999999999999999999D",
+                9999999999999999999999999999f64
+            );
+        }
     }
 
-    #[test]
-    fn int_octal_number() {
-        assert_int_number_ok!("00", 0o0);
-        assert_int_number_ok!("000", 0o00);
-        assert_int_number_ok!("00000", 0o0000);
-        assert_int_number_ok!("01201241", 0o1201241);
-        assert_int_number_ok!("01020143176", 0o1020143176);
-        assert_int_number_ok!("037777777777", 0o37777777777u32 as i32);
+    mod char {
+        use super::*;
 
-        assert_int_number_err!("047777777777");
+        macro_rules! assert_character_value_ok {
+            ($code:expr, $literal:expr) => {
+                assert_eq!(java::character_value($code).unwrap(), $literal as u16);
+            };
+            ($literal:expr) => {
+                assert_character_value_ok!(stringify!($literal), $literal);
+            };
+        }
+
+        #[test]
+        fn char_raw() {
+            assert_character_value_ok!('0');
+            assert_character_value_ok!('5');
+            assert_character_value_ok!('a');
+            assert_character_value_ok!('z');
+            assert_character_value_ok!('A');
+            assert_character_value_ok!('Z');
+            assert_character_value_ok!('_');
+            assert_character_value_ok!('+');
+            assert_character_value_ok!('-');
+            assert_character_value_ok!('*');
+            assert_character_value_ok!('/');
+            assert_character_value_ok!(' ');
+        }
+
+        #[test]
+        fn char_octal() {
+            assert_character_value_ok!('\0');
+            assert_character_value_ok!("'\\123'", 0o123u16);
+            assert_character_value_ok!("'\\372'", 0o372u16);
+            assert_character_value_ok!("'\\22'", 0o22u16);
+            assert_character_value_ok!("'\\77'", 0o77u16);
+        }
+
+        #[test]
+        fn char_unicode() {
+            assert_character_value_ok!("'\\u1000'", '\u{1000}');
+            assert_character_value_ok!("'\\u1234'", '\u{1234}');
+            assert_character_value_ok!("'\\u9999'", '\u{9999}');
+            assert_character_value_ok!("'\\u0123'", '\u{123}');
+        }
+
+        #[test]
+        fn char_escaped() {
+            assert_character_value_ok!("'\\b'", '\u{8}');
+            assert_character_value_ok!("'\\t'", '\u{9}');
+            assert_character_value_ok!("'\\n'", '\u{a}');
+            assert_character_value_ok!("'\\f'", '\u{c}');
+            assert_character_value_ok!("'\\r'", '\u{d}');
+            assert_character_value_ok!("'\\\"'", '\u{22}');
+            assert_character_value_ok!("'\\''", '\u{27}');
+            assert_character_value_ok!("'\\\\'", '\u{5c}');
+        }
     }
 
-    #[test]
-    fn int_decimal_number() {
-        assert_int_number_ok!(0);
-        assert_int_number_ok!(1);
-        assert_int_number_ok!(9752);
-        assert_int_number_ok!(97521254);
-        // Note: the number will be a negative integer equal to
-        assert_int_number_ok!("2147483648", 2147483648u32 as i32);
-        assert_int_number_ok!("2147483648", i32::MIN);
+    mod keyword {
+        use super::*;
 
-        assert_int_number_ok!(i32::MAX.to_string().as_str(), i32::MAX);
-        assert_int_number_err!(format!("{}0", i32::MAX).as_str());
+        macro_rules! assert_keyword_expression_ok {
+            ($code:expr, $literal:ident) => {
+                assert_eq!(
+                    java::keyword_expression($code),
+                    Ok(ast::Expression::Keyword(ast::Keyword::$literal))
+                );
+            };
+        }
+
+        #[test]
+        fn keyword() {
+            //<editor-fold desc="List of keywords" defaultstate="collapsed">
+            assert_keyword_expression_ok!("abstract", Abstract);
+            assert_keyword_expression_ok!("assert", Assert);
+            assert_keyword_expression_ok!("boolean", Boolean);
+            assert_keyword_expression_ok!("break", Break);
+            assert_keyword_expression_ok!("byte", Byte);
+            assert_keyword_expression_ok!("case", Case);
+            assert_keyword_expression_ok!("catch", Catch);
+            assert_keyword_expression_ok!("char", Char);
+            assert_keyword_expression_ok!("class", Class);
+            assert_keyword_expression_ok!("const", Const);
+            assert_keyword_expression_ok!("continue", Continue);
+            assert_keyword_expression_ok!("default", Default);
+            assert_keyword_expression_ok!("do", Do);
+            assert_keyword_expression_ok!("double", Double);
+            assert_keyword_expression_ok!("else", Else);
+            assert_keyword_expression_ok!("enum", Enum);
+            assert_keyword_expression_ok!("extends", Extends);
+            assert_keyword_expression_ok!("final", Final);
+            assert_keyword_expression_ok!("finally", Finally);
+            assert_keyword_expression_ok!("float", Float);
+            assert_keyword_expression_ok!("for", For);
+            assert_keyword_expression_ok!("goto", Goto);
+            assert_keyword_expression_ok!("if", If);
+            assert_keyword_expression_ok!("implements", Implements);
+            assert_keyword_expression_ok!("import", Import);
+            assert_keyword_expression_ok!("instanceof", Instanceof);
+            assert_keyword_expression_ok!("int", Int);
+            assert_keyword_expression_ok!("interface", Interface);
+            assert_keyword_expression_ok!("long", Long);
+            assert_keyword_expression_ok!("native", Native);
+            assert_keyword_expression_ok!("new", New);
+            assert_keyword_expression_ok!("package", Package);
+            assert_keyword_expression_ok!("private", Private);
+            assert_keyword_expression_ok!("protected", Protected);
+            assert_keyword_expression_ok!("public", Public);
+            assert_keyword_expression_ok!("return", Return);
+            assert_keyword_expression_ok!("short", Short);
+            assert_keyword_expression_ok!("static", Static);
+            assert_keyword_expression_ok!("strictfp", Strictfp);
+            assert_keyword_expression_ok!("super", Super);
+            assert_keyword_expression_ok!("switch", Switch);
+            assert_keyword_expression_ok!("synchronized", Synchronized);
+            assert_keyword_expression_ok!("this", This);
+            assert_keyword_expression_ok!("throw", Throw);
+            assert_keyword_expression_ok!("throws", Throws);
+            assert_keyword_expression_ok!("transient", Transient);
+            assert_keyword_expression_ok!("try", Try);
+            assert_keyword_expression_ok!("void", Void);
+            assert_keyword_expression_ok!("volatile", Volatile);
+            assert_keyword_expression_ok!("while", While);
+            //</editor-fold>
+        }
+
+        macro_rules! assert_keyword_expression_err {
+            ($code:expr) => {
+                assert!(java::keyword_expression($code).is_err());
+            };
+        }
+
+        #[test]
+        fn incorrect_keyword() {
+            assert_keyword_expression_err!("integer");
+            assert_keyword_expression_err!("while ago");
+            assert_keyword_expression_err!("nonvolatile");
+            assert_keyword_expression_err!("throwable");
+        }
     }
 
-    macro_rules! assert_long_number_ok {
-        ($code:expr, $literal:expr) => {
-            assert_eq!(java::long_number($code).unwrap(), Ok($literal));
-        };
-        ($literal:expr) => {
-            assert_long_number_ok!(stringify!($literal), $literal);
-            assert_long_number_ok!(concat!(stringify!($literal), "l"), $literal);
-            assert_long_number_ok!(concat!(stringify!($literal), "L"), $literal);
-        };
-    }
+    mod identifier {
+        use super::*;
 
-    macro_rules! assert_long_number_err {
-        ($code:expr) => {
-            assert!(matches!(java::long_number($code).unwrap(), Err(_)));
-        };
-    }
+        macro_rules! assert_identifier_expression_ok {
+            ($code:expr) => {
+                assert_eq!(
+                    java::identifier_expression($code),
+                    Ok(ast::Expression::Identifier($code.to_string()))
+                );
+            };
+        }
 
-    #[test]
-    fn long_hex_number() {
-        assert_long_number_ok!("0x0L", 0x0);
-        assert_long_number_ok!("0x00L", 0x00);
-        assert_long_number_ok!("0x0000L", 0x0000);
-        assert_long_number_ok!("0xFaceB00cL", 0xFaceB00c);
-        assert_long_number_ok!("0xFace_B00cL", 0xFace_B00C);
-        assert_long_number_ok!("0xCAFEBABEDEADL", 0xCAFEBABEDEAD);
-        assert_long_number_ok!("0xCAFE_BABE_DEADL", 0xCAFE_BABE_DEAD);
-        assert_long_number_ok!("0xCAFEBABE_DEADBEEFL", 0xCAFEBABE_DEADBEEFu64 as i64);
+        macro_rules! assert_identifier_expression_err {
+            ($code:expr) => {
+                assert!(java::identifier_expression($code).is_err());
+            };
+        }
 
-        assert_long_number_err!("0xCAFEBABE_DEADBEEFFL");
-    }
+        #[test]
+        fn identifier() {
+            assert_identifier_expression_ok!("hello");
+            assert_identifier_expression_ok!("wow");
+            assert_identifier_expression_ok!("oma1ga1");
+            assert_identifier_expression_ok!("$tonks");
+            assert_identifier_expression_ok!("$$$");
+            assert_identifier_expression_ok!("$12$34$");
+            assert_identifier_expression_ok!("$12$34$56");
+        }
 
-    #[test]
-    fn long_binary_number() {
-        assert_long_number_ok!("0b0L", 0b0);
-        assert_long_number_ok!("0b00L", 0b00);
-        assert_long_number_ok!("0b0000L", 0b0000);
-        assert_long_number_ok!("0b1010010101010L", 0b1010010101010);
-        assert_long_number_ok!("0b1111111111L", 0b1111111111);
-        assert_long_number_ok!(
-            "0b1111111111111111111111111111111111111111111111111111111111111111L",
-            0b1111111111111111111111111111111111111111111111111111111111111111u64 as i64
-        );
-
-        assert_long_number_err!(
-            "0b10000000000000000000000000000000000000000000000000000000000000001L"
-        );
-    }
-
-    #[test]
-    fn long_octal_number() {
-        assert_long_number_ok!("00L", 0o0);
-        assert_long_number_ok!("000L", 0o00);
-        assert_long_number_ok!("00000L", 0o0000);
-        assert_long_number_ok!("01201241L", 0o1201241);
-        assert_long_number_ok!("01020143176L", 0o1020143176);
-
-        assert_long_number_ok!("0777777777777777777777L", 0o777777777777777777777u64 as i64);
-
-        assert_long_number_err!("07777777777777777777770L");
-        assert_long_number_err!("07777777777777777777777L");
-    }
-
-    #[test]
-    fn long_decimal_number() {
-        assert_long_number_ok!("0L", 0);
-        assert_long_number_ok!("1L", 1);
-        assert_long_number_ok!("9752L", 9752);
-        assert_long_number_ok!("97521254L", 97521254);
-        assert_long_number_ok!("11057130957130L", 11057130957130);
-        assert_long_number_ok!("9223372036854775808L", 9223372036854775808u64 as i64);
-        assert_long_number_ok!("9223372036854775808L", i64::MIN);
-
-        assert_long_number_ok!("9223372036854775807L", i64::MAX);
-        assert_long_number_err!(format!("{}0L", i64::MAX).as_str());
-    }
-
-    macro_rules! assert_float_number_ok {
-        ($code:expr, $literal:expr) => {
-            assert_eq!(java::float_number($code).unwrap(), Ok($literal));
-        };
-        ($literal:expr) => {
-            assert_float_number_ok!(concat!(stringify!($literal), "f"), $literal);
-            assert_float_number_ok!(concat!(stringify!($literal), "F"), $literal);
-        };
-    }
-
-    #[test]
-    fn float_decimal_e_number() {
-        assert_float_number_ok!(1.2E3);
-        assert_float_number_ok!(1.2213E-7);
-        assert_float_number_ok!(0.1248762174E-99);
-        assert_float_number_ok!(12.34e+7);
-        assert_float_number_ok!(12.34e+7);
-    }
-
-    #[test]
-    fn float_hex_e_number() {
-        assert_float_number_ok!("0xA.Bp1f", 10.11e1);
-        assert_float_number_ok!("0xA.Bp1F", 10.11e1);
-
-        assert_float_number_ok!("0x2D.Fp+5f", 45.15e+5);
-        assert_float_number_ok!("0x2D.Fp+5F", 45.15e+5);
-    }
-
-    #[test]
-    fn float_point_number() {
-        assert_float_number_ok!(0.123);
-        // TODO: fix big numerics
-        //assert_float_number_ok!(7498127648197589127581591285789175921.12879491749812748291742948);
-
-        assert_float_number_ok!(890.);
-        assert_float_number_ok!(281937128947128921.);
-
-        assert_float_number_ok!(".4567f", 0.4567);
-        assert_float_number_ok!(".4567F", 0.4567);
-        assert_float_number_ok!(".912640821765892165f", 0.912640821765892165);
-        assert_float_number_ok!(".912640821765892165F", 0.912640821765892165);
-    }
-
-    #[test]
-    fn float_prefix_number() {
-        assert_float_number_ok!("0f", 0f32);
-        assert_float_number_ok!("0F", 0f32);
-
-        assert_float_number_ok!("000f", 0f32);
-        assert_float_number_ok!("000F", 0f32);
-
-        assert_float_number_ok!("123f", 123f32);
-        assert_float_number_ok!("123F", 123f32);
-
-        assert_float_number_ok!("123f", 123f32);
-        assert_float_number_ok!("123F", 123f32);
-
-        assert_float_number_ok!(
-            "9999999999999999999999999999f",
-            9999999999999999999999999999f32
-        );
-        assert_float_number_ok!(
-            "9999999999999999999999999999F",
-            9999999999999999999999999999f32
-        );
-    }
-
-    macro_rules! assert_double_number_ok {
-        ($code:expr, $literal:expr) => {
-            assert_eq!(java::double_number($code).unwrap(), Ok($literal));
-        };
-        ($literal:expr) => {
-            assert_double_number_ok!(stringify!($literal), $literal);
-            assert_double_number_ok!(concat!(stringify!($literal), "d"), $literal);
-            assert_double_number_ok!(concat!(stringify!($literal), "D"), $literal);
-        };
-    }
-
-    #[test]
-    fn double_decimal_e_number() {
-        assert_double_number_ok!(1.2E3);
-        assert_double_number_ok!(1.2213E-7);
-        assert_double_number_ok!(0.1248762174E-99);
-        assert_double_number_ok!(12.34e+56);
-    }
-
-    #[test]
-    fn double_hex_e_number() {
-        assert_double_number_ok!("0xA.Bp1", 10.11e1);
-        assert_double_number_ok!("0xA.Bp1d", 10.11e1);
-        assert_double_number_ok!("0xA.Bp1D", 10.11e1);
-
-        assert_double_number_ok!("0x2D.Fp+5", 45.15e+5);
-        assert_double_number_ok!("0x2D.Fp+5d", 45.15e+5);
-        assert_double_number_ok!("0x2D.Fp+5D", 45.15e+5);
-    }
-
-    #[test]
-    fn double_point_number() {
-        assert_double_number_ok!(0.123);
-        // TODO: fix big numerics
-        //assert_double_number_ok!(7498127648197589127581591285789175921.12879491749812748291742948);
-
-        assert_double_number_ok!(890.);
-        // TODO: fix big numerics
-        //assert_double_number_ok!(821748912784907120470215012759201587129057219057291075.);
-
-        assert_double_number_ok!(".4567", 0.4567);
-        assert_double_number_ok!(".4567d", 0.4567);
-        assert_double_number_ok!(".4567D", 0.4567);
-
-        assert_double_number_ok!(".912640821765892160", 0.912640821765892160);
-        assert_double_number_ok!(".912640821765892160d", 0.912640821765892160);
-        assert_double_number_ok!(".912640821765892160D", 0.912640821765892160);
-    }
-
-    #[test]
-    fn double_prefix_number() {
-        assert_double_number_ok!("0d", 0f64);
-        assert_double_number_ok!("0D", 0f64);
-
-        assert_double_number_ok!("000d", 0f64);
-        assert_double_number_ok!("000D", 0f64);
-
-        assert_double_number_ok!("123d", 123f64);
-        assert_double_number_ok!("123D", 123f64);
-
-        assert_double_number_ok!("123d", 123f64);
-        assert_double_number_ok!("123D", 123f64);
-
-        assert_double_number_ok!(
-            "9999999999999999999999999999d",
-            9999999999999999999999999999f64
-        );
-        assert_double_number_ok!(
-            "9999999999999999999999999999D",
-            9999999999999999999999999999f64
-        );
-    }
-
-    macro_rules! assert_character_value_ok {
-        ($code:expr, $literal:expr) => {
-            assert_eq!(java::character_value($code).unwrap(), $literal as u16);
-        };
-        ($literal:expr) => {
-            assert_character_value_ok!(stringify!($literal), $literal);
-        };
-    }
-
-    #[test]
-    fn char_raw() {
-        assert_character_value_ok!('0');
-        assert_character_value_ok!('5');
-        assert_character_value_ok!('a');
-        assert_character_value_ok!('z');
-        assert_character_value_ok!('A');
-        assert_character_value_ok!('Z');
-        assert_character_value_ok!('_');
-        assert_character_value_ok!('+');
-        assert_character_value_ok!('-');
-        assert_character_value_ok!('*');
-        assert_character_value_ok!('/');
-        assert_character_value_ok!(' ');
-    }
-
-    #[test]
-    fn char_octal() {
-        assert_character_value_ok!('\0');
-        assert_character_value_ok!("'\\123'", 0o123u16);
-        assert_character_value_ok!("'\\372'", 0o372u16);
-        assert_character_value_ok!("'\\22'", 0o22u16);
-        assert_character_value_ok!("'\\77'", 0o77u16);
-    }
-
-    #[test]
-    fn char_unicode() {
-        assert_character_value_ok!("'\\u1000'", '\u{1000}');
-        assert_character_value_ok!("'\\u1234'", '\u{1234}');
-        assert_character_value_ok!("'\\u9999'", '\u{9999}');
-        assert_character_value_ok!("'\\u0123'", '\u{123}');
-    }
-
-    #[test]
-    fn char_escaped() {
-        assert_character_value_ok!("'\\b'", '\u{8}');
-        assert_character_value_ok!("'\\t'", '\u{9}');
-        assert_character_value_ok!("'\\n'", '\u{a}');
-        assert_character_value_ok!("'\\f'", '\u{c}');
-        assert_character_value_ok!("'\\r'", '\u{d}');
-        assert_character_value_ok!("'\\\"'", '\u{22}');
-        assert_character_value_ok!("'\\''", '\u{27}');
-        assert_character_value_ok!("'\\\\'", '\u{5c}');
-    }
-
-    macro_rules! assert_keyword_ok {
-        ($code:expr, $literal:expr) => {
-            assert_eq!(java::keyword($code), Ok($literal));
-        };
-    }
-
-    macro_rules! assert_keyword_err {
-        ($code:expr) => {
-            assert!(matches!(java::keyword($code), Err(_)));
-        };
-    }
-
-    #[test]
-    fn keyword() {
-        assert_keyword_ok!("abstract", ast::Keyword::Abstract);
-        assert_keyword_ok!("assert", ast::Keyword::Assert);
-        assert_keyword_ok!("boolean", ast::Keyword::Boolean);
-        assert_keyword_ok!("break", ast::Keyword::Break);
-        assert_keyword_ok!("byte", ast::Keyword::Byte);
-        assert_keyword_ok!("case", ast::Keyword::Case);
-        assert_keyword_ok!("catch", ast::Keyword::Catch);
-        assert_keyword_ok!("char", ast::Keyword::Char);
-        assert_keyword_ok!("class", ast::Keyword::Class);
-        assert_keyword_ok!("const", ast::Keyword::Const);
-        assert_keyword_ok!("continue", ast::Keyword::Continue);
-        assert_keyword_ok!("default", ast::Keyword::Default);
-        assert_keyword_ok!("do", ast::Keyword::Do);
-        assert_keyword_ok!("double", ast::Keyword::Double);
-        assert_keyword_ok!("else", ast::Keyword::Else);
-        assert_keyword_ok!("enum", ast::Keyword::Enum);
-        assert_keyword_ok!("extends", ast::Keyword::Extends);
-        assert_keyword_ok!("final", ast::Keyword::Final);
-        assert_keyword_ok!("finally", ast::Keyword::Finally);
-        assert_keyword_ok!("float", ast::Keyword::Float);
-        assert_keyword_ok!("for", ast::Keyword::For);
-        assert_keyword_ok!("goto", ast::Keyword::Goto);
-        assert_keyword_ok!("if", ast::Keyword::If);
-        assert_keyword_ok!("implements", ast::Keyword::Implements);
-        assert_keyword_ok!("import", ast::Keyword::Import);
-        assert_keyword_ok!("instanceof", ast::Keyword::Instanceof);
-        assert_keyword_ok!("int", ast::Keyword::Int);
-        assert_keyword_ok!("interface", ast::Keyword::Interface);
-        assert_keyword_ok!("long", ast::Keyword::Long);
-        assert_keyword_ok!("native", ast::Keyword::Native);
-        assert_keyword_ok!("new", ast::Keyword::New);
-        assert_keyword_ok!("package", ast::Keyword::Package);
-        assert_keyword_ok!("private", ast::Keyword::Private);
-        assert_keyword_ok!("protected", ast::Keyword::Protected);
-        assert_keyword_ok!("public", ast::Keyword::Public);
-        assert_keyword_ok!("return", ast::Keyword::Return);
-        assert_keyword_ok!("short", ast::Keyword::Short);
-        assert_keyword_ok!("static", ast::Keyword::Static);
-        assert_keyword_ok!("strictfp", ast::Keyword::Strictfp);
-        assert_keyword_ok!("super", ast::Keyword::Super);
-        assert_keyword_ok!("switch", ast::Keyword::Switch);
-        assert_keyword_ok!("synchronized", ast::Keyword::Synchronized);
-        assert_keyword_ok!("this", ast::Keyword::This);
-        assert_keyword_ok!("throw", ast::Keyword::Throw);
-        assert_keyword_ok!("throws", ast::Keyword::Throws);
-        assert_keyword_ok!("transient", ast::Keyword::Transient);
-        assert_keyword_ok!("try", ast::Keyword::Try);
-        assert_keyword_ok!("void", ast::Keyword::Void);
-        assert_keyword_ok!("volatile", ast::Keyword::Volatile);
-        assert_keyword_ok!("while", ast::Keyword::While);
-    }
-
-    #[test]
-    fn incorrect_keyword() {
-        assert_keyword_err!("integer");
-        assert_keyword_err!("while ago");
-        assert_keyword_err!("nonvolatile");
-        assert_keyword_err!("throwable");
-    }
-
-    macro_rules! assert_identifier_ok {
-        ($code:expr) => {
-            assert_eq!(java::identifier($code), Ok(ast::Expression::Identifier($code.to_string())));
-        };
-    }
-
-    macro_rules! assert_identifier_err {
-        ($code:expr) => {
-            assert!(matches!(java::identifier($code), Err(_)));
-        };
-    }
-
-    #[test]
-    fn identifier() {
-        assert_identifier_ok!("hello");
-        assert_identifier_ok!("wow");
-        assert_identifier_ok!("oma1ga1");
-        assert_identifier_ok!("$tonks");
-        assert_identifier_ok!("$$$");
-        assert_identifier_ok!("$12$34$");
-        assert_identifier_ok!("$12$34$56");
-    }
-
-    #[test]
-    fn incorrect_identifier() {
-        assert_identifier_err!("abstract");
-        assert_identifier_err!("static");
-        assert_identifier_err!("final");
-        assert_identifier_err!("int");
-        assert_identifier_err!("finally");
-        assert_identifier_err!("8800");
-        assert_identifier_err!("1man");
-        assert_identifier_err!("hi bro");
-        assert_identifier_err!("qq\nfriend");
+        #[test]
+        fn incorrect_identifier() {
+            assert_identifier_expression_err!("abstract");
+            assert_identifier_expression_err!("static");
+            assert_identifier_expression_err!("final");
+            assert_identifier_expression_err!("int");
+            assert_identifier_expression_err!("finally");
+            assert_identifier_expression_err!("8800");
+            assert_identifier_expression_err!("1man");
+            assert_identifier_expression_err!("hi bro");
+            assert_identifier_expression_err!("qq\nfriend");
+        }
     }
 }
