@@ -1,3 +1,5 @@
+//! Elements of Java language AST (Abstract Syntax Tree)
+
 #[cfg(test)]
 mod tests {
     #[test]
