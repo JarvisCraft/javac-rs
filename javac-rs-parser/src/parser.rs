@@ -1,39 +1,7 @@
+use crate::error::ParseError;
 pub use javac_rs_ast::ast;
 pub use peg;
-use std::error::Error;
-use std::fmt::Formatter;
-use std::num::{ParseFloatError, ParseIntError};
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParseError {
-    description: String,
-}
-
-impl ParseError {
-    pub fn new(description: String) -> Self {
-        ParseError { description }
-    }
-}
-
-impl std::fmt::Display for ParseError {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "Parse error: {}", self.description)
-    }
-}
-
-impl Error for ParseError {}
-
-impl From<ParseIntError> for ParseError {
-    fn from(error: ParseIntError) -> Self {
-        ParseError::new(error.to_string())
-    }
-}
-
-impl From<ParseFloatError> for ParseError {
-    fn from(error: ParseFloatError) -> Self {
-        ParseError::new(error.to_string())
-    }
-}
+use std::str::FromStr;
 
 fn parse_number_i32(digits: &str, radix: u32) -> Result<i32, ParseError> {
     u32::from_str_radix(digits.replace('_', "").as_str(), radix)
@@ -61,35 +29,22 @@ fn parse_number_f64(digits: &str) -> Result<f64, ParseError> {
         .map_err(|error| error.into())
 }
 
-fn parse_f32_from_parts(
+fn parse_from_parts<N: FromStr>(
     integer_digits: Option<&str>,
     decimal_digits: Option<&str>,
     exponent_digits: Option<&str>,
     radix: u32,
-) -> Result<f32, ParseError> {
+) -> Result<N, ParseError>
+where
+    ParseError: From<<N as FromStr>::Err>,
+{
     format!(
         "{}.{}e{}",
-        integer_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
-        decimal_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
-        exponent_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?
+        integer_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix,))?,
+        decimal_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix,))?,
+        exponent_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix,))?
     )
-    .parse::<f32>()
-    .map_err(|error| error.into())
-}
-
-fn parse_f64_from_parts(
-    integer_digits: Option<&str>,
-    decimal_digits: Option<&str>,
-    exponent_digits: Option<&str>,
-    radix: u32,
-) -> Result<f64, ParseError> {
-    format!(
-        "{}.{}e{}",
-        integer_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
-        decimal_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
-        exponent_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?
-    )
-    .parse::<f64>()
+    .parse::<N>()
     .map_err(|error| error.into())
 }
 
@@ -228,11 +183,11 @@ peg::parser! {
                     hex_number_prefix()
                     significand:float_number_hex_significand()
                     hex_exponent_indicator() exponent:signed_number()
-                    { parse_f32_from_parts(significand.0, significand.1, Some(exponent), 16) }
+                    { parse_from_parts::<f32>(significand.0, significand.1, Some(exponent), 16) }
                 ) / (
                     significand:float_number_decimal_significand()
                     exponent:(decimal_exponent_indicator() exponent:signed_number() { exponent })?
-                    { parse_f32_from_parts(significand.0, significand.1, exponent, 10) }
+                    { parse_from_parts::<f32>(significand.0, significand.1, exponent, 10) }
                 )
             ) { number }) / number:(digits:decimal_number(){ parse_number_f32(digits) }) { number }
         ) float_number_suffix() { number }
@@ -244,11 +199,11 @@ peg::parser! {
                     hex_number_prefix()
                     significand:float_number_hex_significand()
                     hex_exponent_indicator() exponent:signed_number()
-                    { parse_f64_from_parts(significand.0, significand.1, Some(exponent), 16) }
+                    { parse_from_parts::<f64>(significand.0, significand.1, Some(exponent), 16) }
                 ) / (
                     significand:float_number_decimal_significand()
                     exponent:(decimal_exponent_indicator() exponent:signed_number() { exponent })?
-                    { parse_f64_from_parts(significand.0, significand.1, exponent, 10) }
+                    { parse_from_parts::<f64>(significand.0, significand.1, exponent, 10) }
                 )
             ) double_number_suffix()? { number }) / (
                 digits:decimal_number() double_number_suffix()
