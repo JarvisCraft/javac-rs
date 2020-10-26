@@ -93,6 +93,7 @@ pub enum Keyword {
     While,
 }
 
+#[derive(Debug, PartialEq)]
 /// A Java expression in source code AST
 pub enum Expression {
     /// Literal expression
