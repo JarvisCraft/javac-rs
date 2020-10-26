@@ -15,6 +15,9 @@ pub type Float = f32;
 /// Java `double` type
 pub type Double = f64;
 
+/// Type used for storing raw identifiers
+pub type IdentifierName = String;
+
 /// Java [literal](https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html#jls-3.10)
 #[derive(Debug, PartialEq)]
 pub enum Literal {
@@ -36,8 +39,64 @@ pub enum Literal {
     Null,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum Keyword {
+    Abstract,
+    Assert,
+    Boolean,
+    Break,
+    Byte,
+    Case,
+    Catch,
+    Char,
+    Class,
+    Const,
+    Continue,
+    Default,
+    Do,
+    Double,
+    Else,
+    Enum,
+    Extends,
+    Final,
+    Finally,
+    Float,
+    For,
+    Goto,
+    If,
+    Implements,
+    Import,
+    Instanceof,
+    Int,
+    Interface,
+    Long,
+    Native,
+    New,
+    Package,
+    Private,
+    Protected,
+    Public,
+    Return,
+    Short,
+    Static,
+    Strictfp,
+    Super,
+    Switch,
+    Synchronized,
+    This,
+    Throw,
+    Throws,
+    Transient,
+    Try,
+    Void,
+    Volatile,
+    While,
+}
+
 /// A Java expression in source code AST
 pub enum Expression {
     /// Literal expression
     Literal(Literal),
+    /// Identifier expression
+    Identifier(IdentifierName),
 }
