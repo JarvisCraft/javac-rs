@@ -359,6 +359,27 @@ peg::parser! {
         pub rule identifier_expression() -> ast::Expression = value:identifier_name() {
             ast::Expression::Identifier(value)
         }
+
+        rule inline_comment_start() = "//"
+
+        rule inline_comment() -> ast::CommentBody
+                = inline_comment_start() body:$((!line_terminator() [_])*)
+                (line_terminator() / ![_]) { body.into() }
+
+        rule multiline_comment_start() = "/*"
+
+        rule multiline_comment_end() = "*/"
+
+        rule multiline_comment() -> ast::CommentBody
+                = multiline_comment_start()
+                body:$((!multiline_comment_end() [_])*)
+                multiline_comment_end() { body.into() }
+                / expected!("End of multiline comment")
+
+        pub rule comment_expression() -> ast::Expression
+                = body:(inline_comment() / multiline_comment()) {
+                   ast::Expression::Comment(body)
+                }
     }
 }
 
@@ -859,6 +880,63 @@ mod tests {
             assert_identifier_expression_err!("1man");
             assert_identifier_expression_err!("hi bro");
             assert_identifier_expression_err!("qq\nfriend");
+        }
+    }
+
+    mod comment {
+        use super::*;
+
+        macro_rules! assert_comment_expression_ok {
+            ($code:expr, $body:expr) => {
+                assert_eq!(
+                    java::comment_expression($code),
+                    Ok(ast::Expression::Comment($body.to_string()))
+                );
+            };
+        }
+
+        macro_rules! assert_comment_expression_err {
+            ($code:expr) => {
+                assert!(java::comment_expression($code).is_err());
+            };
+        }
+
+        #[test]
+        fn inline_comment() {
+            assert_comment_expression_ok!("//Test", "Test");
+            assert_comment_expression_ok!("// Hello world", " Hello world");
+            assert_comment_expression_ok!("//", "");
+            assert_comment_expression_ok!("//Hello\n", "Hello");
+        }
+
+        #[test]
+        fn incorrect_inline_comment() {
+            assert_comment_expression_err!("/ /Roses");
+            assert_comment_expression_err!("\\\\Violins");
+            assert_comment_expression_err!("/\\Unexpected");
+            assert_comment_expression_err!("\\/32");
+        }
+
+        #[test]
+        fn multiline_comment() {
+            assert_comment_expression_ok!("/*Smol*/", "Smol");
+            assert_comment_expression_ok!("/* Potat */", " Potat ");
+            assert_comment_expression_ok!(
+                "/*\n\
+                Hello\r\n\
+                World\n\
+                */",
+                "\nHello\r\nWorld\n"
+            );
+        }
+
+        #[test]
+        fn incorrect_multiline_comment() {
+            assert_comment_expression_err!("*/ ohno */");
+            assert_comment_expression_err!("/* omagad /*");
+            assert_comment_expression_err!("/* just non-terminated");
+            assert_comment_expression_err!("WTJ */");
+            assert_comment_expression_err!("/*\n");
         }
     }
 }
