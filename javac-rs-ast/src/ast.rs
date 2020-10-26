@@ -16,6 +16,7 @@ pub type Float = f32;
 pub type Double = f64;
 
 /// Java [literal](https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html#jls-3.10)
+#[derive(Debug, PartialEq)]
 pub enum Literal {
     /// Literal of `int` type
     Int(Int),
