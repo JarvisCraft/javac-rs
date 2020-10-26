@@ -11,6 +11,11 @@ rust:
   - beta
   - nightly
 
+jobs:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+
 before_script:
   # Install rustfmt and clippy to use them for code verification
   - rustup component add rustfmt clippy
