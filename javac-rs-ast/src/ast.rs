@@ -41,6 +41,7 @@ pub enum Literal {
 
 #[derive(Debug, PartialEq)]
 pub enum Keyword {
+    //<editor-fold desc="List of keywords" defaultstate="collapsed">
     Abstract,
     Assert,
     Boolean,
@@ -91,11 +92,14 @@ pub enum Keyword {
     Void,
     Volatile,
     While,
+    //</editor-fold>
 }
 
 #[derive(Debug, PartialEq)]
 /// A Java expression in source code AST
 pub enum Expression {
+    /// Keyword expression
+    Keyword(Keyword),
     /// Literal expression
     Literal(Literal),
     /// Identifier expression
