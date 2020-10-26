@@ -271,12 +271,95 @@ peg::parser! {
         pub rule null_literal() -> ast::Expression = null() {
             ast::Expression::Literal(ast::Literal::Null)
         }
+
+        // Identifiers and related
+
+        // TODO non-ascii support
+        rule first_identifier_symbol() = ['A'..='Z' | 'a'..='z' | '_' | '$']
+
+        rule identifier_symbol() = decimal_digit() / first_identifier_symbol()
+
+        rule line_terminator() = "\n\r" / ['\n' | '\r']
+
+        rule _() = [' ' | '\t' | '\u{C}'] / line_terminator()();
+
+        /// Keyword name as specified by
+        /// [JLS 3.9](https://docs.oracle.com/javase/specs/jls/se15/html/jls-3.html#jls-3.9)
+        pub rule keyword() -> ast::Keyword = keyword:(
+                "abstract" { ast::Keyword::Abstract }
+                / "assert" { ast::Keyword::Assert }
+                / "boolean" { ast::Keyword::Boolean }
+                / "break" { ast::Keyword::Break }
+                / "byte" { ast::Keyword::Byte }
+                / "case" { ast::Keyword::Case }
+                / "catch" { ast::Keyword::Catch }
+                / "char" { ast::Keyword::Char }
+                / "class" { ast::Keyword::Class }
+                / "const" { ast::Keyword::Const }
+                / "continue" { ast::Keyword::Continue }
+                / "default" { ast::Keyword::Default }
+                // [[do]uble] should have higher priority than [do]
+                / "double" { ast::Keyword::Double }
+                / "do" { ast::Keyword::Do }
+                / "else" { ast::Keyword::Else }
+                / "enum" { ast::Keyword::Enum }
+                / "extends" { ast::Keyword::Extends }
+                // [[final]ly] should have higher priority than [final]
+                / "finally" { ast::Keyword::Finally }
+                / "final" { ast::Keyword::Final }
+                / "float" { ast::Keyword::Float }
+                / "for" { ast::Keyword::For }
+                / "goto" { ast::Keyword::Goto }
+                / "if" { ast::Keyword::If }
+                / "implements" { ast::Keyword::Implements }
+                / "import" { ast::Keyword::Import }
+                / "instanceof" { ast::Keyword::Instanceof }
+                // [[int]erface] should have higher priority than [int]
+                / "interface" { ast::Keyword::Interface }
+                / "int" { ast::Keyword::Int }
+                / "long" { ast::Keyword::Long }
+                / "native" { ast::Keyword::Native }
+                / "new" { ast::Keyword::New }
+                / "package" { ast::Keyword::Package }
+                / "private" { ast::Keyword::Private }
+                / "protected" { ast::Keyword::Protected }
+                / "public" { ast::Keyword::Public }
+                / "return" { ast::Keyword::Return }
+                / "short" { ast::Keyword::Short }
+                / "static" { ast::Keyword::Static }
+                / "strictfp" { ast::Keyword::Strictfp }
+                / "super" { ast::Keyword::Super }
+                / "switch" { ast::Keyword::Switch }
+                / "synchronized" { ast::Keyword::Synchronized }
+                / "this" { ast::Keyword::This }
+                // [[throw]s] should have higher priority than [throw]
+                / "throws" { ast::Keyword::Throws }
+                / "throw" { ast::Keyword::Throw }
+                / "transient" { ast::Keyword::Transient }
+                / "try" { ast::Keyword::Try }
+                / "void" { ast::Keyword::Void }
+                / "volatile" { ast::Keyword::Volatile }
+                / "while" { ast::Keyword::While }
+        ) !identifier_symbol() { keyword }
+
+        rule identifier_raw() = quiet! {
+                !keyword() first_identifier_symbol() (identifier_symbol())*
+        } / expected!("Identifier")
+
+        rule identifier_name() -> ast::IdentifierName = identifier:$(identifier_raw()) {
+            identifier.into()
+        }
+
+        pub rule identifier() -> ast::Expression = value:identifier_name() {
+            ast::Expression::Identifier(value)
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::parser::java;
+    use crate::parser::ast;
 
     macro_rules! assert_int_number_ok {
         ($code:expr, $literal:expr) => {
@@ -620,5 +703,115 @@ mod tests {
         assert_character_value_ok!("'\\\"'", '\u{22}');
         assert_character_value_ok!("'\\''", '\u{27}');
         assert_character_value_ok!("'\\\\'", '\u{5c}');
+    }
+
+    macro_rules! assert_keyword_ok {
+        ($code:expr, $literal:expr) => {
+            assert_eq!(java::keyword($code), Ok($literal));
+        };
+    }
+
+    macro_rules! assert_keyword_err {
+        ($code:expr) => {
+            assert!(matches!(java::keyword($code), Err(_)));
+        };
+    }
+
+    #[test]
+    fn keyword() {
+        assert_keyword_ok!("abstract", ast::Keyword::Abstract);
+        assert_keyword_ok!("assert", ast::Keyword::Assert);
+        assert_keyword_ok!("boolean", ast::Keyword::Boolean);
+        assert_keyword_ok!("break", ast::Keyword::Break);
+        assert_keyword_ok!("byte", ast::Keyword::Byte);
+        assert_keyword_ok!("case", ast::Keyword::Case);
+        assert_keyword_ok!("catch", ast::Keyword::Catch);
+        assert_keyword_ok!("char", ast::Keyword::Char);
+        assert_keyword_ok!("class", ast::Keyword::Class);
+        assert_keyword_ok!("const", ast::Keyword::Const);
+        assert_keyword_ok!("continue", ast::Keyword::Continue);
+        assert_keyword_ok!("default", ast::Keyword::Default);
+        assert_keyword_ok!("do", ast::Keyword::Do);
+        assert_keyword_ok!("double", ast::Keyword::Double);
+        assert_keyword_ok!("else", ast::Keyword::Else);
+        assert_keyword_ok!("enum", ast::Keyword::Enum);
+        assert_keyword_ok!("extends", ast::Keyword::Extends);
+        assert_keyword_ok!("final", ast::Keyword::Final);
+        assert_keyword_ok!("finally", ast::Keyword::Finally);
+        assert_keyword_ok!("float", ast::Keyword::Float);
+        assert_keyword_ok!("for", ast::Keyword::For);
+        assert_keyword_ok!("goto", ast::Keyword::Goto);
+        assert_keyword_ok!("if", ast::Keyword::If);
+        assert_keyword_ok!("implements", ast::Keyword::Implements);
+        assert_keyword_ok!("import", ast::Keyword::Import);
+        assert_keyword_ok!("instanceof", ast::Keyword::Instanceof);
+        assert_keyword_ok!("int", ast::Keyword::Int);
+        assert_keyword_ok!("interface", ast::Keyword::Interface);
+        assert_keyword_ok!("long", ast::Keyword::Long);
+        assert_keyword_ok!("native", ast::Keyword::Native);
+        assert_keyword_ok!("new", ast::Keyword::New);
+        assert_keyword_ok!("package", ast::Keyword::Package);
+        assert_keyword_ok!("private", ast::Keyword::Private);
+        assert_keyword_ok!("protected", ast::Keyword::Protected);
+        assert_keyword_ok!("public", ast::Keyword::Public);
+        assert_keyword_ok!("return", ast::Keyword::Return);
+        assert_keyword_ok!("short", ast::Keyword::Short);
+        assert_keyword_ok!("static", ast::Keyword::Static);
+        assert_keyword_ok!("strictfp", ast::Keyword::Strictfp);
+        assert_keyword_ok!("super", ast::Keyword::Super);
+        assert_keyword_ok!("switch", ast::Keyword::Switch);
+        assert_keyword_ok!("synchronized", ast::Keyword::Synchronized);
+        assert_keyword_ok!("this", ast::Keyword::This);
+        assert_keyword_ok!("throw", ast::Keyword::Throw);
+        assert_keyword_ok!("throws", ast::Keyword::Throws);
+        assert_keyword_ok!("transient", ast::Keyword::Transient);
+        assert_keyword_ok!("try", ast::Keyword::Try);
+        assert_keyword_ok!("void", ast::Keyword::Void);
+        assert_keyword_ok!("volatile", ast::Keyword::Volatile);
+        assert_keyword_ok!("while", ast::Keyword::While);
+    }
+
+    #[test]
+    fn incorrect_keyword() {
+        assert_keyword_err!("integer");
+        assert_keyword_err!("while ago");
+        assert_keyword_err!("nonvolatile");
+        assert_keyword_err!("throwable");
+    }
+
+    macro_rules! assert_identifier_ok {
+        ($code:expr) => {
+            assert_eq!(java::identifier($code), Ok(ast::Expression::Identifier($code.to_string())));
+        };
+    }
+
+    macro_rules! assert_identifier_err {
+        ($code:expr) => {
+            assert!(matches!(java::identifier($code), Err(_)));
+        };
+    }
+
+    #[test]
+    fn identifier() {
+        assert_identifier_ok!("hello");
+        assert_identifier_ok!("wow");
+        assert_identifier_ok!("oma1ga1");
+        assert_identifier_ok!("$tonks");
+        assert_identifier_ok!("$$$");
+        assert_identifier_ok!("$12$34$");
+        assert_identifier_ok!("$12$34$56");
+    }
+
+    #[test]
+    fn incorrect_identifier() {
+        assert_identifier_err!("abstract");
+        assert_identifier_err!("static");
+        assert_identifier_err!("final");
+        assert_identifier_err!("int");
+        assert_identifier_err!("finally");
+        assert_identifier_err!("8800");
+        assert_identifier_err!("1man");
+        assert_identifier_err!("hi bro");
+        assert_identifier_err!("qq\nfriend");
     }
 }
