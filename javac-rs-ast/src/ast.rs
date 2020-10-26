@@ -18,6 +18,9 @@ pub type Double = f64;
 /// Type used for storing raw identifiers
 pub type IdentifierName = String;
 
+/// Type used for storing raw comment body
+pub type CommentBody = String;
+
 /// Java [literal](https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html#jls-3.10)
 #[derive(Debug, PartialEq)]
 pub enum Literal {
@@ -104,4 +107,6 @@ pub enum Expression {
     Literal(Literal),
     /// Identifier expression
     Identifier(IdentifierName),
+    /// Comment expression
+    Comment(CommentBody),
 }
