@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 javac-rs-ast = { path = "../javac-rs-ast" }
 peg = "0.6.3"
+num-traits = "0.2.12"
