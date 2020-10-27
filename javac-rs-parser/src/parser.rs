@@ -337,62 +337,62 @@ peg::parser! {
         /// Keyword name as specified by
         /// [JLS 3.9](https://docs.oracle.com/javase/specs/jls/se15/html/jls-3.html#jls-3.9)
         rule keyword() -> ast::Keyword = keyword:(
-        //<editor-fold desc="List of keywords" defaultstate="collapsed">
-                "abstract" { ast::Keyword::Abstract }
-                / "assert" { ast::Keyword::Assert }
-                / "boolean" { ast::Keyword::Boolean }
-                / "break" { ast::Keyword::Break }
-                / "byte" { ast::Keyword::Byte }
-                / "case" { ast::Keyword::Case }
-                / "catch" { ast::Keyword::Catch }
-                / "char" { ast::Keyword::Char }
-                / "class" { ast::Keyword::Class }
-                / "const" { ast::Keyword::Const }
-                / "continue" { ast::Keyword::Continue }
-                / "default" { ast::Keyword::Default }
-                // [[do]uble] should have higher priority than [do]
-                / "double" { ast::Keyword::Double }
-                / "do" { ast::Keyword::Do }
-                / "else" { ast::Keyword::Else }
-                / "enum" { ast::Keyword::Enum }
-                / "extends" { ast::Keyword::Extends }
-                // [[final]ly] should have higher priority than [final]
-                / "finally" { ast::Keyword::Finally }
-                / "final" { ast::Keyword::Final }
-                / "float" { ast::Keyword::Float }
-                / "for" { ast::Keyword::For }
-                / "goto" { ast::Keyword::Goto }
-                / "if" { ast::Keyword::If }
-                / "implements" { ast::Keyword::Implements }
-                / "import" { ast::Keyword::Import }
-                / "instanceof" { ast::Keyword::Instanceof }
-                // [[int]erface] should have higher priority than [int]
-                / "interface" { ast::Keyword::Interface }
-                / "int" { ast::Keyword::Int }
-                / "long" { ast::Keyword::Long }
-                / "native" { ast::Keyword::Native }
-                / "new" { ast::Keyword::New }
-                / "package" { ast::Keyword::Package }
-                / "private" { ast::Keyword::Private }
-                / "protected" { ast::Keyword::Protected }
-                / "public" { ast::Keyword::Public }
-                / "return" { ast::Keyword::Return }
-                / "short" { ast::Keyword::Short }
-                / "static" { ast::Keyword::Static }
-                / "strictfp" { ast::Keyword::Strictfp }
-                / "super" { ast::Keyword::Super }
-                / "switch" { ast::Keyword::Switch }
-                / "synchronized" { ast::Keyword::Synchronized }
-                / "this" { ast::Keyword::This }
-                // [[throw]s] should have higher priority than [throw]
-                / "throws" { ast::Keyword::Throws }
-                / "throw" { ast::Keyword::Throw }
-                / "transient" { ast::Keyword::Transient }
-                / "try" { ast::Keyword::Try }
-                / "void" { ast::Keyword::Void }
-                / "volatile" { ast::Keyword::Volatile }
-                / "while" { ast::Keyword::While }
-        //</editor-fold>
+            //<editor-fold desc="List of keywords" defaultstate="collapsed">
+            "abstract" { ast::Keyword::Abstract }
+            / "assert" { ast::Keyword::Assert }
+            / "boolean" { ast::Keyword::Boolean }
+            / "break" { ast::Keyword::Break }
+            / "byte" { ast::Keyword::Byte }
+            / "case" { ast::Keyword::Case }
+            / "catch" { ast::Keyword::Catch }
+            / "char" { ast::Keyword::Char }
+            / "class" { ast::Keyword::Class }
+            / "const" { ast::Keyword::Const }
+            / "continue" { ast::Keyword::Continue }
+            / "default" { ast::Keyword::Default }
+            // [[do]uble] should have higher priority than [do]
+            / "double" { ast::Keyword::Double }
+            / "do" { ast::Keyword::Do }
+            / "else" { ast::Keyword::Else }
+            / "enum" { ast::Keyword::Enum }
+            / "extends" { ast::Keyword::Extends }
+            // [[final]ly] should have higher priority than [final]
+            / "finally" { ast::Keyword::Finally }
+            / "final" { ast::Keyword::Final }
+            / "float" { ast::Keyword::Float }
+            / "for" { ast::Keyword::For }
+            / "goto" { ast::Keyword::Goto }
+            / "if" { ast::Keyword::If }
+            / "implements" { ast::Keyword::Implements }
+            / "import" { ast::Keyword::Import }
+            / "instanceof" { ast::Keyword::Instanceof }
+            // [[int]erface] should have higher priority than [int]
+            / "interface" { ast::Keyword::Interface }
+            / "int" { ast::Keyword::Int }
+            / "long" { ast::Keyword::Long }
+            / "native" { ast::Keyword::Native }
+            / "new" { ast::Keyword::New }
+            / "package" { ast::Keyword::Package }
+            / "private" { ast::Keyword::Private }
+            / "protected" { ast::Keyword::Protected }
+            / "public" { ast::Keyword::Public }
+            / "return" { ast::Keyword::Return }
+            / "short" { ast::Keyword::Short }
+            / "static" { ast::Keyword::Static }
+            / "strictfp" { ast::Keyword::Strictfp }
+            / "super" { ast::Keyword::Super }
+            / "switch" { ast::Keyword::Switch }
+            / "synchronized" { ast::Keyword::Synchronized }
+            / "this" { ast::Keyword::This }
+            // [[throw]s] should have higher priority than [throw]
+            / "throws" { ast::Keyword::Throws }
+            / "throw" { ast::Keyword::Throw }
+            / "transient" { ast::Keyword::Transient }
+            / "try" { ast::Keyword::Try }
+            / "void" { ast::Keyword::Void }
+            / "volatile" { ast::Keyword::Volatile }
+            / "while" { ast::Keyword::While }
+            //</editor-fold>
         ) !identifier_symbol() { keyword }
 
         pub rule keyword_expression() -> ast::Expression = value:keyword() {
