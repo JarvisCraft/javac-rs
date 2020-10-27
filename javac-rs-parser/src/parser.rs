@@ -1,51 +1,97 @@
-use crate::error::ParseError;
 pub use javac_rs_ast::ast;
 pub use peg;
-use std::str::FromStr;
 
-fn parse_number_i32(digits: &str, radix: u32) -> Result<i32, ParseError> {
-    u32::from_str_radix(digits.replace('_', "").as_str(), radix)
-        .map(|value| value as i32)
-        .map_err(|error| error.into())
-}
+mod literals {
+    use num_traits::Num;
+    use std::num::{ParseFloatError, ParseIntError};
+    use std::str::FromStr;
 
-fn parse_number_i64(digits: &str, radix: u32) -> Result<i64, ParseError> {
-    u64::from_str_radix(digits.replace('_', "").as_str(), radix)
-        .map(|value| value as i64)
-        .map_err(|error| error.into())
-}
+    pub trait PrimitiveFrom<T> {
+        fn from(source: T) -> Self;
+    }
 
-fn parse_number_f32(digits: &str) -> Result<f32, ParseError> {
-    digits
-        .replace('_', "")
-        .parse::<f32>()
-        .map_err(|error| error.into())
-}
+    impl PrimitiveFrom<u32> for i32 {
+        fn from(source: u32) -> Self {
+            source as Self
+        }
+    }
 
-fn parse_number_f64(digits: &str) -> Result<f64, ParseError> {
-    digits
-        .replace('_', "")
-        .parse::<f64>()
-        .map_err(|error| error.into())
-}
+    impl PrimitiveFrom<u64> for i64 {
+        fn from(source: u64) -> Self {
+            source as Self
+        }
+    }
 
-fn parse_from_parts<N: FromStr>(
-    integer_digits: Option<&str>,
-    decimal_digits: Option<&str>,
-    exponent_digits: Option<&str>,
-    radix: u32,
-) -> Result<N, ParseError>
-where
-    ParseError: From<<N as FromStr>::Err>,
-{
-    format!(
-        "{}.{}e{}",
-        integer_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
-        decimal_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?,
-        exponent_digits.map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))?
-    )
-    .parse::<N>()
-    .map_err(|error| error.into())
+    pub trait IntoStaticStr {
+        fn into_static_str(self) -> &'static str;
+    }
+
+    impl IntoStaticStr for ParseIntError {
+        fn into_static_str(self) -> &'static str {
+            "integer literal cannot be parsed"
+        }
+    }
+
+    impl IntoStaticStr for ParseFloatError {
+        fn into_static_str(self) -> &'static str {
+            "floating point literal cannot be parsed"
+        }
+    }
+
+    pub fn parse_integer_number<F: Num, T: Num + PrimitiveFrom<F>>(
+        digits: &str,
+        radix: u32,
+    ) -> Result<T, &'static str>
+    where
+        <F as Num>::FromStrRadixErr: IntoStaticStr,
+    {
+        F::from_str_radix(digits.replace('_', "").as_str(), radix)
+            .map(|value| T::from(value))
+            .map_err(|error| error.into_static_str())
+    }
+
+    pub fn parse_number_i32(digits: &str, radix: u32) -> Result<i32, &'static str> {
+        parse_integer_number::<u32, i32>(digits, radix)
+    }
+
+    pub fn parse_number_i64(digits: &str, radix: u32) -> Result<i64, &'static str> {
+        parse_integer_number::<u64, i64>(digits, radix)
+    }
+
+    pub fn parse_floating_point_number<T: FromStr>(digits: &str) -> Result<T, &'static str>
+    where
+        T::Err: IntoStaticStr,
+    {
+        digits
+            .replace('_', "")
+            .parse::<T>()
+            .map_err(|error| error.into_static_str())
+    }
+
+    pub fn parse_from_parts<T: FromStr>(
+        integer_digits: Option<&str>,
+        decimal_digits: Option<&str>,
+        exponent_digits: Option<&str>,
+        radix: u32,
+    ) -> Result<T, &'static str>
+    where
+        T::Err: IntoStaticStr,
+    {
+        format!(
+            "{}.{}e{}",
+            integer_digits
+                .map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))
+                .map_err(|error| error.into_static_str())?,
+            decimal_digits
+                .map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))
+                .map_err(|error| error.into_static_str())?,
+            exponent_digits
+                .map_or(Ok(0), |digits| i64::from_str_radix(digits, radix))
+                .map_err(|error| error.into_static_str())?
+        )
+        .parse::<T>()
+        .map_err(|error| error.into_static_str())
+    }
 }
 
 // TODO remove unneeded pub's
@@ -139,19 +185,28 @@ peg::parser! {
         rule signed_number() -> &'input str = $(['+' | '-']? decimal_number())
 
         /// Number of type `int`
-        pub rule int_number() -> Result<i32, ParseError> = number:(
-            (hex_number_prefix() digits:hex_number() { parse_number_i32(digits, 16) })
-            / (binary_number_prefix() digits:binary_number() { parse_number_i32(digits, 2) })
-            / (octal_number_prefix() digits:octal_number() { parse_number_i32(digits, 8) })
-            / (digits:decimal_number() { parse_number_i32(digits, 10)})
-        )
+        pub rule int_number() -> i32
+            = (hex_number_prefix() digits:hex_number() {?
+                literals::parse_number_i32(digits, 16)
+            }) / (binary_number_prefix() digits:binary_number() {?
+                literals::parse_number_i32(digits, 2)
+            }) / (octal_number_prefix() digits:octal_number() {?
+                literals::parse_number_i32(digits, 8)
+            }) / (digits:decimal_number() {?
+                literals::parse_number_i32(digits, 10)
+            })
 
         /// Number of type `long`
-        pub rule long_number() -> Result<i64, ParseError> = number:(
-            (hex_number_prefix() digits:hex_number() { parse_number_i64(digits, 16) })
-            / (binary_number_prefix() digits:binary_number() { parse_number_i64(digits, 2) })
-            / (octal_number_prefix() digits:octal_number() { parse_number_i64(digits, 8) })
-            / (digits:decimal_number() { parse_number_i64(digits, 10) })
+        pub rule long_number() -> i64 = number:(
+            (hex_number_prefix() digits:hex_number() {?
+                literals::parse_number_i64(digits, 16)
+            }) / (binary_number_prefix() digits:binary_number() {?
+                literals::parse_number_i64(digits, 2)
+            }) / (octal_number_prefix() digits:octal_number() {?
+                literals::parse_number_i64(digits, 8)
+            }) / (digits:decimal_number() {?
+                literals::parse_number_i64(digits, 10)
+            })
         ) long_number_suffix() { number }
 
         /// Sequence corresponding to a floating point number's
@@ -177,55 +232,54 @@ peg::parser! {
             = float_number_significand(<decimal_number()>)
 
         /// Number of type `float`
-        pub rule float_number() -> Result<f32, ParseError> = number:(
-            (number:(
-                (
-                    hex_number_prefix()
-                    significand:float_number_hex_significand()
-                    hex_exponent_indicator() exponent:signed_number()
-                    { parse_from_parts::<f32>(significand.0, significand.1, Some(exponent), 16) }
-                ) / (
-                    significand:float_number_decimal_significand()
-                    exponent:(decimal_exponent_indicator() exponent:signed_number() { exponent })?
-                    { parse_from_parts::<f32>(significand.0, significand.1, exponent, 10) }
-                )
-            ) { number }) / number:(digits:decimal_number(){ parse_number_f32(digits) }) { number }
+        pub rule float_number() -> f32 = number:(
+            (
+                hex_number_prefix()
+                significand:float_number_hex_significand()
+                hex_exponent_indicator() exponent:signed_number() {?
+                    literals::parse_from_parts::<f32>(
+                        significand.0, significand.1, Some(exponent), 16
+                    )
+                }
+            ) / (
+                significand:float_number_decimal_significand()
+                exponent:(decimal_exponent_indicator() exponent:signed_number() { exponent })? {?
+                    literals::parse_from_parts::<f32>(
+                        significand.0, significand.1, exponent, 10
+                    )
+                }
+            ) / (digits:decimal_number() {? literals::parse_floating_point_number(digits) })
         ) float_number_suffix() { number }
 
         /// Number of type `double`
-        pub rule double_number() -> Result<f64, ParseError> = (
-            (number:(
-                (
-                    hex_number_prefix()
-                    significand:float_number_hex_significand()
-                    hex_exponent_indicator() exponent:signed_number()
-                    { parse_from_parts::<f64>(significand.0, significand.1, Some(exponent), 16) }
-                ) / (
-                    significand:float_number_decimal_significand()
-                    exponent:(decimal_exponent_indicator() exponent:signed_number() { exponent })?
-                    { parse_from_parts::<f64>(significand.0, significand.1, exponent, 10) }
+        pub rule double_number() -> f64 = (number:((
+            hex_number_prefix()
+            significand:float_number_hex_significand()
+            hex_exponent_indicator() exponent:signed_number() {?
+                literals::parse_from_parts::<f64>(
+                    significand.0, significand.1, Some(exponent), 16
                 )
-            ) double_number_suffix()? { number }) / (
-                digits:decimal_number() double_number_suffix()
-                { parse_number_f64(digits) }
-            )
+            }
+        ) / (
+            significand:float_number_decimal_significand()
+            exponent:(decimal_exponent_indicator() exponent:signed_number() { exponent })? {?
+                literals::parse_from_parts::<f64>(significand.0, significand.1, exponent, 10)
+            }
+        )) double_number_suffix()? { number }) / (
+            digits:decimal_number() double_number_suffix()
+            {? literals::parse_floating_point_number(digits) }
         )
 
-        pub rule character_value() -> ast::Char = (
-            "'" value:(
-                value:("\\" value:(
-                    (
-                        "u" digits:$(hex_digit()*<4,4>)
-                        { ast::Char::from_str_radix(digits, 16).unwrap() }
-                    )
-                    / (
-                        digits:($(['0'..='3'] octal_digit() octal_digit()) / $(octal_digit()*<1,2>))
-                        { ast::Char::from_str_radix(digits, 8).unwrap() }
-                    ) / (value:escape_sequence() { value })
-                ) { value }) { value }
-                / value:not_escaped_char_symbol() { value as ast::Char }
-            ) "'" { value }
-        )
+        pub rule character_value() -> ast::Char = "'" value:(
+            value:("\\" value:(
+                ("u" digits:$(hex_digit()*<4,4>) { ast::Char::from_str_radix(digits, 16).unwrap() })
+                / (
+                    digits:($(['0'..='3'] octal_digit() octal_digit()) / $(octal_digit()*<1,2>))
+                    { ast::Char::from_str_radix(digits, 8).unwrap() }
+                ) / escape_sequence()
+            ) { value }) { value }
+            / value:not_escaped_char_symbol() { value as ast::Char }
+        ) "'" { value }
 
         /// Boolean value i.e. `true` or `false`
         pub rule boolean_value() -> ast::Boolean = "true" { true } / "false" { false }
@@ -235,26 +289,24 @@ peg::parser! {
 
         // Literals as AST Expressions
 
-        // TODO better error handling instead of `unwrap()`
-
         /// Literal of type `int`
         pub rule int_literal_expression() -> ast::Expression = value:int_number() {
-            ast::Expression::Literal(ast::Literal::Int(value.unwrap()))
+            ast::Expression::Literal(ast::Literal::Int(value))
         }
 
         /// Literal of type `long`
         pub rule long_literal_expression() -> ast::Expression = value:long_number() {
-            ast::Expression::Literal(ast::Literal::Long(value.unwrap()))
+            ast::Expression::Literal(ast::Literal::Long(value))
         }
 
         /// Literal of type `float`
         pub rule float_literal_expression() -> ast::Expression = value:float_number() {
-            ast::Expression::Literal(ast::Literal::Float(value.unwrap()))
+            ast::Expression::Literal(ast::Literal::Float(value))
         }
 
         /// Literal of type `double`
         pub rule double_literal_expression() -> ast::Expression = value:double_number() {
-            ast::Expression::Literal(ast::Literal::Double(value.unwrap()))
+            ast::Expression::Literal(ast::Literal::Double(value))
         }
 
         /// Literal of type `boolean`
@@ -281,7 +333,7 @@ peg::parser! {
 
         rule line_terminator() = "\n\r" / ['\n' | '\r']
 
-        rule _() = [' ' | '\t' | '\u{C}'] / line_terminator();
+        rule _() = [' ' | '\t' | '\u{C}'] / line_terminator()
 
         /// Keyword name as specified by
         /// [JLS 3.9](https://docs.oracle.com/javase/specs/jls/se15/html/jls-3.html#jls-3.9)
@@ -371,15 +423,14 @@ peg::parser! {
         rule multiline_comment_end() = "*/"
 
         rule multiline_comment() -> ast::CommentBody
-                = multiline_comment_start()
+            = quiet! { multiline_comment_start()
                 body:$((!multiline_comment_end() [_])*)
-                multiline_comment_end() { body.into() }
-                / expected!("End of multiline comment")
+                (quiet! { multiline_comment_end() })
+                { body.into() }
+            } / expected!("End of multiline comment: `*/`")
 
         pub rule comment_expression() -> ast::Expression
-                = body:(inline_comment() / multiline_comment()) {
-                   ast::Expression::Comment(body)
-                }
+            = body:(inline_comment() / multiline_comment()) { ast::Expression::Comment(body) }
     }
 }
 
@@ -405,7 +456,7 @@ mod tests {
 
         macro_rules! assert_int_number_err {
             ($code:expr) => {
-                assert!(java::int_number($code).unwrap().is_err());
+                assert!(java::int_number($code).is_err());
             };
         }
 
@@ -474,7 +525,7 @@ mod tests {
 
         macro_rules! assert_long_number_ok {
             ($code:expr, $literal:expr) => {
-                assert_eq!(java::long_number($code).unwrap(), Ok($literal));
+                assert_eq!(java::long_number($code), Ok($literal));
             };
             ($literal:expr) => {
                 assert_long_number_ok!(stringify!($literal), $literal);
@@ -485,7 +536,7 @@ mod tests {
 
         macro_rules! assert_long_number_err {
             ($code:expr) => {
-                assert!(java::long_number($code).unwrap().is_err());
+                assert!(java::long_number($code).is_err());
             };
         }
 
@@ -554,7 +605,7 @@ mod tests {
 
         macro_rules! assert_float_number_ok {
             ($code:expr, $literal:expr) => {
-                assert_eq!(java::float_number($code).unwrap(), Ok($literal));
+                assert_eq!(java::float_number($code), Ok($literal));
             };
             ($literal:expr) => {
                 assert_float_number_ok!(concat!(stringify!($literal), "f"), $literal);
@@ -625,7 +676,7 @@ mod tests {
 
         macro_rules! assert_double_number_ok {
             ($code:expr, $literal:expr) => {
-                assert_eq!(java::double_number($code).unwrap(), Ok($literal));
+                assert_eq!(java::double_number($code), Ok($literal));
             };
             ($literal:expr) => {
                 assert_double_number_ok!(stringify!($literal), $literal);
