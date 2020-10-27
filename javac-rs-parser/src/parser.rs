@@ -94,7 +94,6 @@ mod literals {
     }
 }
 
-// TODO remove unneeded pub's
 peg::parser! {
     /// Java language grammar as specified by [JLS](https://docs.oracle.com/javase/specs/)
     pub grammar java() for str {
@@ -102,62 +101,62 @@ peg::parser! {
         // Basic lexical objects not bound to AST-nodes
 
         /// Digit of a binary number
-        pub rule binary_digit() -> char
+        rule binary_digit() -> char
                 = slice:$(['0' | '1']) { slice.chars().next().unwrap() }
 
         /// Digit of an octal number
-        pub rule octal_digit() -> char
+        rule octal_digit() -> char
                 = slice:$(['0'..='7']) { slice.chars().next().unwrap() }
 
         /// Digit of a decimal number
-        pub rule decimal_digit() -> char
+        rule decimal_digit() -> char
                 = slice:$(['0'..='9']) { slice.chars().next().unwrap() }
 
         /// Digit of a hex number
-        pub rule hex_digit() -> char
+        rule hex_digit() -> char
                 = slice:$(['0'..='9' | 'A'..='F' | 'a'..='f']) { slice.chars().next().unwrap() }
 
         /// Prefix of a binary number
-        pub rule binary_number_prefix() = "0" ['B' | 'b']
+        rule binary_number_prefix() = "0" ['B' | 'b']
 
         /// Prefix of an octal number
-        pub rule octal_number_prefix() = "0"
+        rule octal_number_prefix() = "0"
 
         /// Prefix of a hex number
-        pub rule hex_number_prefix() = "0" ['X' | 'x']
+        rule hex_number_prefix() = "0" ['X' | 'x']
 
         /// Suffix of `long` number
-        pub rule long_number_suffix() = ['L' | 'l']
+        rule long_number_suffix() = ['L' | 'l']
 
         /// Suffix of `float` number
-        pub rule float_number_suffix() = ['F' | 'f']
+        rule float_number_suffix() = ['F' | 'f']
 
         /// Suffix of `double` number
-        pub rule double_number_suffix() = ['D' | 'd']
+        rule double_number_suffix() = ['D' | 'd']
 
         /// Indicator of a start of the exponent of a decimal number
-        pub rule decimal_exponent_indicator() = ['E' | 'e']
+        rule decimal_exponent_indicator() = ['E' | 'e']
 
         /// Indicator of a start of the exponent of a hex number
-        pub rule hex_exponent_indicator() = ['P' | 'p']
+        rule hex_exponent_indicator() = ['P' | 'p']
 
         /// Rule returning `-1i32` for `"-"` and `+1i32` for anything other
-        pub rule sign_num_i32() -> i32 = "-" { -1 } / { 1 }
+        rule sign_num_i32() -> i32 = "-" { -1 } / { 1 }
 
         /// Rule returning `-1i64` for `"-"` and `+1i64` for anything other
-        pub rule sign_num_i64() -> i64 = "-" { -1 } / { 1 }
+        rule sign_num_i64() -> i64 = "-" { -1 } / { 1 }
 
         /// Optional separator of digits in numbers
-        pub rule digit_separator() = "_"
+        rule digit_separator() = "_"
 
         /// Separator of integer and fractional parts of numbers
-        pub rule decimal_separator() = "."
+        rule decimal_separator() = "."
 
         /// A character which does not require escaping in char literals
-        pub rule not_escaped_char_symbol() -> char
+        rule not_escaped_char_symbol() -> char
             = character:$(!['\\' | '\''][_]) { character.chars().next().unwrap() };
 
-        pub rule escape_sequence() -> ast::Char
+        rule escape_sequence() -> ast::Char
             = "b" { 0x0008 } / "t" { 0x0009 } / "n" { 0x000a } / "f" { 0x000c }
             / "r" { 0x000d } / "\"" { 0x0022 } / "'" { 0x0027 } / "\\" { 0x005c }
 
@@ -185,7 +184,7 @@ peg::parser! {
         rule signed_number() -> &'input str = $(['+' | '-']? decimal_number())
 
         /// Number of type `int`
-        pub rule int_number() -> i32
+        rule int_number() -> i32
             = (hex_number_prefix() digits:hex_number() {?
                 literals::parse_number_i32(digits, 16)
             }) / (binary_number_prefix() digits:binary_number() {?
@@ -197,7 +196,7 @@ peg::parser! {
             })
 
         /// Number of type `long`
-        pub rule long_number() -> i64 = number:(
+        rule long_number() -> i64 = number:(
             (hex_number_prefix() digits:hex_number() {?
                 literals::parse_number_i64(digits, 16)
             }) / (binary_number_prefix() digits:binary_number() {?
@@ -232,7 +231,7 @@ peg::parser! {
             = float_number_significand(<decimal_number()>)
 
         /// Number of type `float`
-        pub rule float_number() -> f32 = number:(
+        rule float_number() -> f32 = number:(
             (
                 hex_number_prefix()
                 significand:float_number_hex_significand()
@@ -252,7 +251,7 @@ peg::parser! {
         ) float_number_suffix() { number }
 
         /// Number of type `double`
-        pub rule double_number() -> f64 = (number:((
+        rule double_number() -> f64 = (number:((
             hex_number_prefix()
             significand:float_number_hex_significand()
             hex_exponent_indicator() exponent:signed_number() {?
@@ -270,7 +269,7 @@ peg::parser! {
             {? literals::parse_floating_point_number(digits) }
         )
 
-        pub rule character_value() -> ast::Char = "'" value:(
+        rule character_value() -> ast::Char = "'" value:(
             value:("\\" value:(
                 ("u" digits:$(hex_digit()*<4,4>) { ast::Char::from_str_radix(digits, 16).unwrap() })
                 / (
@@ -282,10 +281,10 @@ peg::parser! {
         ) "'" { value }
 
         /// Boolean value i.e. `true` or `false`
-        pub rule boolean_value() -> ast::Boolean = "true" { true } / "false" { false }
+        rule boolean_value() -> ast::Boolean = "true" { true } / "false" { false }
 
         /// Simply `null` also known as billion-dollar mistake
-        pub rule null() = "null";
+        rule null() = "null";
 
         // Literals as AST Expressions
 
@@ -455,9 +454,7 @@ mod tests {
         }
 
         macro_rules! assert_int_number_err {
-            ($code:expr) => {
-                assert!(java::int_number($code).is_err());
-            };
+            ($code:expr) => { assert!(java::int_literal_expression($code).is_err()); };
         }
 
         #[test]
@@ -525,7 +522,10 @@ mod tests {
 
         macro_rules! assert_long_number_ok {
             ($code:expr, $literal:expr) => {
-                assert_eq!(java::long_number($code), Ok($literal));
+                assert_eq!(
+                    java::long_literal_expression($code),
+                    Ok(ast::Expression::Literal(ast::Literal::Long($literal)))
+                );
             };
             ($literal:expr) => {
                 assert_long_number_ok!(stringify!($literal), $literal);
@@ -536,7 +536,7 @@ mod tests {
 
         macro_rules! assert_long_number_err {
             ($code:expr) => {
-                assert!(java::long_number($code).is_err());
+                assert!(java::long_literal_expression($code).is_err());
             };
         }
 
@@ -605,7 +605,10 @@ mod tests {
 
         macro_rules! assert_float_number_ok {
             ($code:expr, $literal:expr) => {
-                assert_eq!(java::float_number($code), Ok($literal));
+                assert_eq!(
+                    java::float_literal_expression($code),
+                    Ok(ast::Expression::Literal(ast::Literal::Float($literal)))
+                );
             };
             ($literal:expr) => {
                 assert_float_number_ok!(concat!(stringify!($literal), "f"), $literal);
@@ -676,7 +679,10 @@ mod tests {
 
         macro_rules! assert_double_number_ok {
             ($code:expr, $literal:expr) => {
-                assert_eq!(java::double_number($code), Ok($literal));
+                assert_eq!(
+                    java::double_literal_expression($code),
+                    Ok(ast::Expression::Literal(ast::Literal::Double($literal)))
+                );
             };
             ($literal:expr) => {
                 assert_double_number_ok!(stringify!($literal), $literal);
@@ -755,11 +761,12 @@ mod tests {
 
         macro_rules! assert_character_value_ok {
             ($code:expr, $literal:expr) => {
-                assert_eq!(java::character_value($code).unwrap(), $literal as u16);
+                assert_eq!(
+                    java::char_literal_expression($code).unwrap(),
+                    ast::Expression::Literal(ast::Literal::Char($literal as ast::Char))
+                );
             };
-            ($literal:expr) => {
-                assert_character_value_ok!(stringify!($literal), $literal);
-            };
+            ($literal:expr) => { assert_character_value_ok!(stringify!($literal), $literal); };
         }
 
         #[test]
@@ -820,6 +827,10 @@ mod tests {
             };
         }
 
+        macro_rules! assert_keyword_expression_err {
+            ($code:expr) => { assert!(java::keyword_expression($code).is_err()); };
+        }
+
         #[test]
         fn keyword() {
             //<editor-fold desc="List of keywords" defaultstate="collapsed">
@@ -874,12 +885,6 @@ mod tests {
             assert_keyword_expression_ok!("volatile", Volatile);
             assert_keyword_expression_ok!("while", While);
             //</editor-fold>
-        }
-
-        macro_rules! assert_keyword_expression_err {
-            ($code:expr) => {
-                assert!(java::keyword_expression($code).is_err());
-            };
         }
 
         #[test]
