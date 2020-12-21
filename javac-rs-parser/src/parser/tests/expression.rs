@@ -335,6 +335,12 @@ mod char_literal_expression {
         };
     }
 
+    macro_rules! assert_character_value_err {
+        ($code:expr) => {
+            assert!(java::char_literal_expression($code).is_err());
+        };
+    }
+
     #[test]
     fn char_raw() {
         assert_character_value_ok!('0');
@@ -378,6 +384,18 @@ mod char_literal_expression {
         assert_character_value_ok!("'\\\"'", '\u{22}');
         assert_character_value_ok!("'\\''", '\u{27}');
         assert_character_value_ok!("'\\\\'", '\u{5c}');
+    }
+
+    #[test]
+    fn char_incorrect() {
+        assert_character_value_err!("'");
+        assert_character_value_err!("'a");
+        assert_character_value_err!("b'");
+        assert_character_value_err!("'''");
+        assert_character_value_err!("'\n'");
+        assert_character_value_err!("'\r'");
+        assert_character_value_err!("'\r\n'");
+        assert_character_value_err!("'abc'");
     }
 }
 
@@ -628,5 +646,47 @@ mod comment_expression {
         assert_comment_expression_err!("/* just non-terminated");
         assert_comment_expression_err!("WTJ */");
         assert_comment_expression_err!("/*\n");
+    }
+}
+
+mod string_literal_expression {
+
+    use super::*;
+
+    macro_rules! assert_string_literal_ok {
+        ($code:expr, $literal:expr) => {
+            assert_eq!(
+                java::string_literal_expression($code).unwrap(),
+                ast::Expression::Literal(ast::Literal::String($literal.into()))
+            );
+        };
+    }
+
+    macro_rules! assert_string_literal_err {
+        ($code:expr) => {
+            assert!(java::string_literal_expression($code).is_err());
+        };
+    }
+
+    #[test]
+    fn correct_string_literal() {
+        assert_string_literal_ok!("\"\"", "");
+        assert_string_literal_ok!("\"Hello\"", "Hello");
+        assert_string_literal_ok!(
+            "\"Hello static world full of errors and exceptions through which you can pass <-\"",
+            "Hello static world full of errors and exceptions through which you can pass <-"
+        );
+    }
+
+    #[test]
+    fn incorrect_string_literal() {
+        assert_string_literal_err!("\"");
+        assert_string_literal_err!("Oh hello");
+        assert_string_literal_err!("Enexpected\"");
+        assert_string_literal_err!("\"Omagad\'");
+        assert_string_literal_err!("\'Gadoma\"");
+        assert_string_literal_err!("\"Gido\"ra");
+        assert_string_literal_err!("\"\\\"");
+        assert_string_literal_err!("\"Line1\nLine2\"");
     }
 }

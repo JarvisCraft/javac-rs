@@ -1,5 +1,7 @@
 pub use javac_rs_ast::ast;
 pub use peg;
+use std::cmp::min;
+use std::ops::Index;
 
 mod literals;
 
@@ -62,10 +64,28 @@ peg::parser! {
         rule decimal_separator() = "."
 
         /// A character which does not require escaping in char literals
-        rule not_escaped_char_symbol() -> char
-            = character:$(!['\\' | '\''][_]) { character.chars().next().unwrap() };
+        rule escape_sequence() -> u16
+            = "\\" value:(
+                ("u" digits:$(hex_digit()*<4,4>) { ast::Char::from_str_radix(digits, 16).unwrap() })
+                / (
+                    digits:($(['0'..='3'] octal_digit() octal_digit()) / $(octal_digit()*<1,2>))
+                    { ast::Char::from_str_radix(digits, 8).unwrap() }
+                ) / special_string_escape()
+            ) { value };
 
-        rule escape_sequence() -> ast::Char
+        /// A character which does not require escaping in char literals
+        rule not_escaped_char_symbol() -> char
+            = !("\\" / "\'" / line_terminator()) character:$([_]) {
+                character.chars().next().unwrap()
+            };
+
+        /// A character which does not require escaping in string literals
+        rule not_escaped_string_symbol() -> char
+            = !("\\" / "\"" / line_terminator()) character:$([_]) {
+                character.chars().next().unwrap()
+            };
+
+        rule special_string_escape() -> ast::Char
             = "b" { 0x0008 } / "t" { 0x0009 } / "n" { 0x000a } / "f" { 0x000c }
             / "r" { 0x000d } / "\"" { 0x0022 } / "'" { 0x0027 } / "\\" { 0x005c }
 
@@ -178,16 +198,27 @@ peg::parser! {
             {? literals::parse_floating_point_number(digits) }
         )
 
-        rule character_value() -> ast::Char = "'" value:(
-            value:("\\" value:(
-                ("u" digits:$(hex_digit()*<4,4>) { ast::Char::from_str_radix(digits, 16).unwrap() })
-                / (
-                    digits:($(['0'..='3'] octal_digit() octal_digit()) / $(octal_digit()*<1,2>))
-                    { ast::Char::from_str_radix(digits, 8).unwrap() }
-                ) / escape_sequence()
-            ) { value }) { value }
-            / value:not_escaped_char_symbol() { value as ast::Char }
-        ) "'" { value }
+        rule raw_char() -> ast::Char
+            = escape_sequence() / value:not_escaped_char_symbol() { value as ast::Char }
+
+        rule raw_string_char() -> ast::Char
+            = escape_sequence() / value:not_escaped_string_symbol() { value as ast::Char }
+
+        rule character_value() -> ast::Char = "'" value:raw_char() "'" { value }
+
+        rule raw_string() -> ast::StringLiteralValue = characters:raw_string_char()* {
+            String::from_utf16(&characters.into_iter().collect::<Vec<_>>()).unwrap()
+        }
+
+        rule string_value() -> ast::StringLiteralValue = "\"" value:raw_string() "\"" { value }
+
+        /*
+        rule text_block_value() -> ast::StringLiteralValue = "\"\"\"" value:(
+            _* line_terminator() lines:raw_string()* {
+                lines.map(|line| line.)
+            }
+        ) "\"\"\"" { value.into() };
+        */
 
         /// Boolean value i.e. `true` or `false`
         rule boolean_value() -> ast::Boolean = "true" { true } / "false" { false }
@@ -232,11 +263,18 @@ peg::parser! {
             ast::Expression::Literal(ast::Literal::Null)
         }
 
+        /// `java.lang.String` literal
+        pub rule string_literal_expression() -> ast::Expression = value:(
+            string_value()/* / text_block_value()*/
+        ) { ast::Expression::Literal(ast::Literal::String(value)) }
+
+        /// Literal of an arbitrary type
         pub rule literal_expression() -> ast::Expression
-            =  null_literal_expression()
+            = null_literal_expression()
             / char_literal_expression() / boolean_literal_expression()
             / float_literal_expression() / double_literal_expression()
             / long_literal_expression() / int_literal_expression()
+            / string_literal_expression()
 
         // Identifiers and related
 

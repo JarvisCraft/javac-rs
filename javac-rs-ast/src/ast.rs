@@ -21,6 +21,9 @@ pub type IdentifierName = String;
 /// Type used for storing raw comment body
 pub type CommentBody = String;
 
+/// Type used for storing raw string literal body
+pub type StringLiteralValue = String;
+
 /// Java [literal](https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html#jls-3.10)
 #[derive(Debug, PartialEq)]
 pub enum Literal {
@@ -36,8 +39,8 @@ pub enum Literal {
     Boolean(Boolean),
     /// Literal of `char` type
     Char(Char),
-    /// Literal of `double` type
-    String(String),
+    /// Literal of `java.lang.String` type
+    String(StringLiteralValue),
     /// `null` literal
     Null,
 }
@@ -98,8 +101,66 @@ pub enum Keyword {
     //</editor-fold>
 }
 
-#[derive(Debug, PartialEq)]
+impl Keyword {
+    /// Checks if this keyword represents a (primitive) type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use javac_rs_ast::ast::Keyword;
+    ///
+    /// assert!(Keyword::Byte.is_type());
+    /// assert!(!Keyword::Private.is_type());
+    /// assert!(!Keyword::Synchronized.is_type());
+    /// ```
+    pub fn is_type(&self) -> bool {
+        matches!(
+            self,
+            Self::Boolean
+                | Self::Byte
+                | Self::Char
+                | Self::Double
+                | Self::Float
+                | Self::Int
+                | Self::Long
+                | Self::Short
+        )
+    }
+
+    /// Checks if this keyword represents an access modifier.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use javac_rs_ast::ast::Keyword;
+    ///
+    /// assert!(Keyword::Public.is_access_modifier());
+    /// assert!(!Keyword::Package.is_access_modifier());
+    /// assert!(!Keyword::Continue.is_access_modifier());
+    /// ```
+    pub fn is_access_modifier(&self) -> bool {
+        matches!(self, Self::Private | Self::Protected | Self::Public)
+    }
+
+    /// Checks if this keyword represents an unused keyword.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use javac_rs_ast::ast::Keyword;
+    ///
+    /// assert!(Keyword::Const.is_unused());
+    /// assert!(Keyword::Goto.is_unused());
+    /// assert!(!Keyword::Abstract.is_unused());
+    /// assert!(!Keyword::Case.is_unused());
+    /// ```
+    pub fn is_unused(&self) -> bool {
+        matches!(self, Self::Const | Self::Goto)
+    }
+}
+
 /// A Java expression in source code AST
+#[derive(Debug, PartialEq)]
 pub enum Expression {
     /// Keyword expression
     Keyword(Keyword),
