@@ -214,18 +214,35 @@ impl Class {
         Ok(())
     }
 
-    fn add_field(&mut self, _field: FieldInfo) -> Result<(), ClassStoreError> {
-        unimplemented!() // TODO
+    /*
+    pub fn add_field<'a>(&'a mut self, access_flags: FieldAccessFlags, name: String, descriptor: String) -> Result<&'a mut Field, ClassStoreError> {
+        let name = self.const_pool.store_const_utf8_info(name)?;
+        let descriptor = self.const_pool.store_const_utf8_info(descriptor)?;
+
+        let field = Cell::new(FieldInfo::new(access_flags, name, descriptor));
+        {
+            vec![FieldInfo::new(access_flags, name, descriptor)].
+        }
+
+        let field = self.fields.push()?;
+
+        Ok(Field{})
     }
+     */
 
     fn add_method(&mut self, _method: MethodInfo) -> Result<(), ClassStoreError> {
         unimplemented!() // TODO
     }
 
-    pub fn add_custom_attribute(&mut self, name: String, payload: JvmVecU4<u8>) -> Result<(), AttributeCreateError> {
-        let attribute = NamedAttribute::new_custom_attribute(&mut self.const_pool, name, payload)?;
-        self.add_attribute(attribute);
+    pub fn add_source_file_attribute(&mut self, filename: String) -> Result<(), AttributeAddError> {
+        let attribute = NamedAttribute::new_source_file_attribute(&mut self.const_pool, filename)?;
+        self.add_attribute(attribute)?;
+        Ok(())
+    }
 
+    pub fn add_custom_attribute(&mut self, name: String, payload: JvmVecU4<u8>) -> Result<(), AttributeAddError> {
+        let attribute = NamedAttribute::new_custom_attribute(&mut self.const_pool, name, payload)?;
+        self.add_attribute(attribute)?;
         Ok(())
     }
 }
@@ -257,3 +274,23 @@ impl ClassfileWritable for Class {
         self.attributes.write_to_classfile(buffer);
     }
 }
+
+// Structs for accessing members of the class
+
+pub struct Field {
+    const_pool: RefCell<ConstPool>,
+    info: RefCell<FieldInfo>,
+}
+
+/*
+impl<'a> Field<'a> {
+
+    pub fn add_const_value_attribute(&'a mut self, value: ConstValue) -> Result<(), AttributeCreateError> {
+        self.info.add_attribute(NamedAttribute::new_const_value_attribute(
+            self.const_pool.borrow_mut(), value,
+        )?);
+
+        Ok(())
+    }
+}
+ */

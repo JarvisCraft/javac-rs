@@ -27,6 +27,8 @@ pub enum AttributeCreateError {
 pub enum AttributeAddError {
     #[error("JVM vector of attributes is out of space")]
     OutOfSpace(#[from] JvmVecStoreError),
+    #[error("Attribute could not be created")]
+    CreateError(#[from] AttributeCreateError),
 }
 
 classfile_writable! {
@@ -51,6 +53,14 @@ impl NamedAttribute {
         let value = const_pool.store_const_value_info(value)?;
 
         Ok(NamedAttribute { name, info: AttributeInfo::ConstantValue(ConstantValueAttribute { value }) })
+    }
+
+    pub fn new_source_file_attribute(const_pool: &mut ConstPool, filename: String)
+                                     -> Result<NamedAttribute, AttributeCreateError> {
+        let name = const_pool.store_const_utf8_info(String::from("SourceFile"))?;
+        let filename = const_pool.store_const_utf8_info(filename)?;
+
+        Ok(NamedAttribute { name, info: AttributeInfo::SourceFile(SourceFileAttribute { filename }) })
     }
 
     pub fn new_custom_attribute(const_pool: &mut ConstPool, name: String, payload: JvmVecU4<u8>)
@@ -219,7 +229,7 @@ classfile_writable! {
 classfile_writable! {
     #[derive(Eq, PartialEq, Debug)]
     pub struct SourceFileAttribute {
-        sourcefile: ConstPoolIndex<ConstUtf8Info>,
+        filename: ConstPoolIndex<ConstUtf8Info>,
     }
 }
 
