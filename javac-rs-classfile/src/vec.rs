@@ -14,9 +14,15 @@ macro_rules! with_doc {
 }
 
 #[derive(Error, Debug)]
-pub enum JvmVecCreationError {
+pub enum JvmVecCreateError {
     #[error("Source value is too big")]
     SourceTooBig,
+}
+
+#[derive(Error, Debug)]
+pub enum JvmVecStoreError {
+    #[error("The size of the JVM vector has been exceeded")]
+    OutOfBounds,
 }
 
 // TODO: add docs
@@ -66,12 +72,13 @@ macro_rules! impl_size_limited_vec {
 
             pub fn has_space(&self) -> bool { self.remaining_space() > 0 }
 
-            pub fn push(&mut self, element: T) -> ::std::option::Option<$size_type> {
+            pub fn push(&mut self, element: T)
+                        -> ::std::result::Result<$size_type, $crate::vec::JvmVecStoreError> {
                 let length = self.len();
                 if length < Self::MAX_SIZE {
                     self.0.push(element);
-                    Some(length)
-                } else { None }
+                    Ok(length)
+                } else { Err($crate::vec::JvmVecStoreError::OutOfBounds) }
             }
         }
 
@@ -80,11 +87,11 @@ macro_rules! impl_size_limited_vec {
         }
 
         impl<T> ::std::convert::TryFrom<Vec<T>> for $name<T> {
-            type Error = $crate::vec::JvmVecCreationError;
+            type Error = $crate::vec::JvmVecCreateError;
 
             fn try_from(source: Vec<T>) -> Result<Self, Self::Error> {
                 if source.len() > Self::MAX_SIZE as usize {
-                    ::std::result::Result::Err($crate::vec::JvmVecCreationError::SourceTooBig)
+                    ::std::result::Result::Err($crate::vec::JvmVecCreateError::SourceTooBig)
                 } else { ::std::result::Result::Ok(Self(source)) }
             }
         }

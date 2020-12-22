@@ -6,7 +6,7 @@ use crate::constpool::{ConstClassInfo, ConstPool, ConstPoolIndex, ConstPoolStore
 use crate::defs::CLASSFILE_HEADER;
 use crate::field::FieldInfo;
 use crate::method::MethodInfo;
-use crate::vec::JvmVecU2;
+use crate::vec::{JvmVecU2, JvmVecCreateError, JvmVecStoreError};
 use std::io::Write;
 use thiserror::Error;
 use crate::writer::ClassfileWritable;
@@ -165,6 +165,8 @@ impl_primitive_classfile_writable!(u8 u16 u32 u64);
 pub enum ClassStoreError {
     #[error("Const pool of the class is out of space")]
     ConstPoolStoreError(#[from] ConstPoolStoreError),
+    #[error("Const pool of the class is out of space")]
+    VecStoreError(#[from] JvmVecStoreError),
 }
 
 /// Classfile structure including all its nested members as specified in
@@ -206,7 +208,13 @@ impl Class {
         }
     }
 
-    fn add_interface(&mut self, _interface: ConstClassInfo) -> Result<(), ClassStoreError> {
+    fn add_interface(&mut self, interface: String) -> Result<(), ClassStoreError> {
+        let interface = self.const_pool.store_const_class_info(interface)?;
+        self.interfaces.push(interface)?;
+        Ok(())
+    }
+
+    fn _add_interface(&mut self, _interface: ConstClassInfo) -> Result<(), ClassStoreError> {
         unimplemented!() // TODO
     }
 

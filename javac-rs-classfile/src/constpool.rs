@@ -5,7 +5,7 @@ use crate::classfile_writable;
 
 use crate::class::Tagged;
 use crate::constpool::ConstPoolEntry::Empty;
-use crate::vec::{JvmVecCreationError, JvmVecU2};
+use crate::vec::{JvmVecCreateError, JvmVecU2, JvmVecStoreError};
 use std::convert::{TryFrom, TryInto};
 use std::marker::PhantomData;
 use std::ops::Deref;
@@ -20,7 +20,7 @@ pub enum ConstPoolStoreError {
     #[error("This const pool reference is already associated with an index")]
     AlreadyStored,
     #[error("Vector's value is too big")]
-    VecValueTooBig(#[from] JvmVecCreationError),
+    VecValueTooBig(#[from] JvmVecCreateError),
 }
 
 /// Typeless index in const pool
@@ -200,7 +200,7 @@ impl ConstPool {
         self.entries
             .push(entry)
             .map(|index| index.into())
-            .ok_or(ConstPoolStoreError::OutOfSpace)
+            .map_err(|_| ConstPoolStoreError::OutOfSpace)
     }
 
     fn store_raw(
@@ -221,7 +221,7 @@ impl ConstPool {
         self.entries
             .push(entry)
             .map(|index| index.into())
-            .ok_or(ConstPoolStoreError::OutOfSpace)
+            .map_err(|_| ConstPoolStoreError::OutOfSpace)
     }
 
     fn store<T: ConstPoolEntryInfo>(
