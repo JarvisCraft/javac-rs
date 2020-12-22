@@ -11,9 +11,9 @@ pub trait ClassfileWritable {
     /// * `const_pool` - const pool to be used for
     fn write_to_classfile<W: Write>(&self, buffer: &mut W);
 
-    /// Creates a new [byte-vector](Vec) from this object.
-    fn to_classfile_bytes(&self) -> Vec<u8> {
-        let mut buffer = Vec::new();
+    /// Writes the bytes of a class into a newly created buffer.
+    fn to_classfile_bytes<W: Write + Default>(&self) -> W {
+        let mut buffer = W::default();
         self.write_to_classfile(&mut buffer);
 
         buffer
