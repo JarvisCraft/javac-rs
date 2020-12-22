@@ -20,4 +20,6 @@ fn create_simple_class_file() {
     let mut file = File::create("TestClass.class").unwrap();
     println!("Path to file: {:#?}", file);
     file.write(&buffer).unwrap();
+
+    // TODO: check class correctness via bundled javap
 }
