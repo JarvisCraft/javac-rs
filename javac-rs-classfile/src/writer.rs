@@ -1,4 +1,3 @@
-use crate::constpool::ConstPool;
 use std::io::Write;
 
 /// An object which can be written into classfile.

@@ -1,8 +1,8 @@
 //! Implementation of classfile-specific logic as specified by
 //! [#4](https://docs.oracle.com/javase/specs/jvms/se14/html/jvms-4.html).
 
-use crate::attribute::{AttributeInfo, Attributable, NamedAttribute, AttributeCreateError, AttributeAddError, CustomAttribute};
-use crate::constpool::{ConstClassInfo, ConstPool, ConstPoolIndex, ConstPoolStoreError};
+use crate::attribute::{Attributable, NamedAttribute, AttributeCreateError, AttributeAddError};
+use crate::constpool::{ConstClassInfo, ConstPool, ConstPoolIndex, ConstPoolStoreError, ConstValue};
 use crate::defs::CLASSFILE_HEADER;
 use crate::field::{FieldInfo, FieldAccessFlags};
 use crate::method::MethodInfo;
@@ -10,7 +10,6 @@ use crate::vec::{JvmVecU2, JvmVecStoreError, JvmVecU4};
 use std::io::Write;
 use thiserror::Error;
 use crate::writer::ClassfileWritable;
-use std::cell::{RefCell, Cell};
 
 pub trait Tagged {
     type TagType;
@@ -162,11 +161,19 @@ macro_rules! impl_primitive_classfile_writable {
 impl_primitive_classfile_writable!(u8 u16 u32 u64);
 
 #[derive(Error, Debug)]
-pub enum ClassStoreError {
+pub enum ClassUpdateError {
     #[error("Const pool of the class is out of space")]
-    ConstPoolStoreError(#[from] ConstPoolStoreError),
+    ConstPoolStore(#[from] ConstPoolStoreError),
     #[error("Const pool of the class is out of space")]
-    VecStoreError(#[from] JvmVecStoreError),
+    VecStore(#[from] JvmVecStoreError),
+    #[error("Attribute could not be created")]
+    AttributeCreate(#[from] AttributeCreateError),
+    #[error("Attribute could not be added")]
+    AttributeAdd(#[from] AttributeAddError),
+    #[error("The specified field index is incorrect")]
+    InvalidFieldIndex,
+    #[error("The specified method index is incorrect")]
+    InvalidMethodIndex,
 }
 
 /// Classfile structure including all its nested members as specified in
@@ -183,6 +190,12 @@ pub struct Class {
     methods: JvmVecU2<MethodInfo>,
     attributes: JvmVecU2<NamedAttribute>,
 }
+
+/// Type of an index of a field in a class.
+pub type ClassFieldIndex = u16;
+
+/// Type of an index of a method in a class.
+pub type ClassMethodIndex = u16;
 
 impl Class {
     pub fn new(
@@ -208,59 +221,96 @@ impl Class {
         }
     }
 
-    pub fn add_interface(&mut self, interface: String) -> Result<(), ClassStoreError> {
+    pub fn add_interface(&mut self, interface: String) -> Result<(), ClassUpdateError> {
         let interface = self.const_pool.store_const_class_info(interface)?;
         self.interfaces.push(interface)?;
         Ok(())
     }
 
-    /*
-    pub fn add_field<'a>(&'a mut self, access_flags: FieldAccessFlags, name: String, descriptor: String) -> Result<&'a mut Field, ClassStoreError> {
+    pub fn add_field(&mut self, access_flags: FieldAccessFlags, name: String, descriptor: String)
+                     -> Result<ClassFieldIndex, ClassUpdateError> {
         let name = self.const_pool.store_const_utf8_info(name)?;
         let descriptor = self.const_pool.store_const_utf8_info(descriptor)?;
-
-        let field = Cell::new(FieldInfo::new(access_flags, name, descriptor));
-        {
-            vec![FieldInfo::new(access_flags, name, descriptor)].
-        }
-
-        let field = self.fields.push()?;
-
-        Ok(Field{})
+        self.fields.push(FieldInfo::new(access_flags, name, descriptor)).map_err(|e| e.into())
     }
-     */
 
-    fn add_method(&mut self, _method: MethodInfo) -> Result<(), ClassStoreError> {
+    fn add_method(&mut self, _method: MethodInfo) -> Result<(), ClassUpdateError> {
         unimplemented!() // TODO
     }
 
-    pub fn add_source_file_attribute(&mut self, filename: String) -> Result<(), AttributeAddError> {
+    pub fn add_source_file_attribute(&mut self, filename: String) -> Result<(), ClassUpdateError> {
         let attribute = NamedAttribute::new_source_file_attribute(&mut self.const_pool, filename)?;
         self.add_attribute(attribute)?;
         Ok(())
     }
 
-    pub fn add_custom_attribute(&mut self, name: String, payload: JvmVecU4<u8>) -> Result<(), AttributeAddError> {
-        let attribute = NamedAttribute::new_custom_attribute(&mut self.const_pool, name, payload)?;
-        self.add_attribute(attribute)?;
-        Ok(())
-    }
-
-    pub fn add_synthetic_attribute(&mut self) -> Result<(), AttributeAddError> {
+    pub fn add_synthetic_attribute(&mut self) -> Result<(), ClassUpdateError> {
         let attribute = NamedAttribute::new_synthetic_attribute(&mut self.const_pool)?;
         self.add_attribute(attribute)?;
         Ok(())
     }
 
-    pub fn add_deprecated_attribute(&mut self) -> Result<(), AttributeAddError> {
+    pub fn add_deprecated_attribute(&mut self) -> Result<(), ClassUpdateError> {
         let attribute = NamedAttribute::new_deprecated_attribute(&mut self.const_pool)?;
         self.add_attribute(attribute)?;
         Ok(())
     }
 
-    pub fn add_signature_attribute(&mut self, signature: String) -> Result<(), AttributeAddError> {
+    pub fn add_signature_attribute(&mut self, signature: String) -> Result<(), ClassUpdateError> {
         let attribute = NamedAttribute::new_signature_attribute(&mut self.const_pool, signature)?;
         self.add_attribute(attribute)?;
+        Ok(())
+    }
+
+    pub fn add_custom_attribute(&mut self, name: String, payload: JvmVecU4<u8>) -> Result<(), ClassUpdateError> {
+        let attribute = NamedAttribute::new_custom_attribute(&mut self.const_pool, name, payload)?;
+        self.add_attribute(attribute)?;
+        Ok(())
+    }
+
+    // Field updaters
+
+    pub fn field_add_const_value_attribute(&mut self, field_index: ClassFieldIndex, value: ConstValue)
+                                           -> Result<(), ClassUpdateError> {
+        let field = self.fields.get_mut(field_index).ok_or(ClassUpdateError::InvalidFieldIndex)?;
+
+        let attribute = NamedAttribute::new_const_value_attribute(
+            &mut self.const_pool, value,
+        )?;
+        field.add_attribute(attribute);
+        Ok(())
+    }
+
+
+    pub fn field_add_synthetic_attribute(&mut self, field_index: ClassFieldIndex) -> Result<(), ClassUpdateError> {
+        let field = self.fields.get_mut(field_index).ok_or(ClassUpdateError::InvalidFieldIndex)?;
+
+        let attribute = NamedAttribute::new_synthetic_attribute(&mut self.const_pool)?;
+        field.add_attribute(attribute)?;
+        Ok(())
+    }
+
+    pub fn field_add_deprecated_attribute(&mut self, field_index: ClassFieldIndex) -> Result<(), ClassUpdateError> {
+        let field = self.fields.get_mut(field_index).ok_or(ClassUpdateError::InvalidFieldIndex)?;
+
+        let attribute = NamedAttribute::new_deprecated_attribute(&mut self.const_pool)?;
+        field.add_attribute(attribute)?;
+        Ok(())
+    }
+
+    pub fn field_add_signature_attribute(&mut self, field_index: ClassFieldIndex, signature: String) -> Result<(), ClassUpdateError> {
+        let field = self.fields.get_mut(field_index).ok_or(ClassUpdateError::InvalidFieldIndex)?;
+
+        let attribute = NamedAttribute::new_signature_attribute(&mut self.const_pool, signature)?;
+        field.add_attribute(attribute)?;
+        Ok(())
+    }
+
+    pub fn field_add_custom_attribute(&mut self, field_index: ClassFieldIndex, name: String, payload: JvmVecU4<u8>) -> Result<(), ClassUpdateError> {
+        let field = self.fields.get_mut(field_index).ok_or(ClassUpdateError::InvalidFieldIndex)?;
+
+        let attribute = NamedAttribute::new_custom_attribute(&mut self.const_pool, name, payload)?;
+        field.add_attribute(attribute)?;
         Ok(())
     }
 }
@@ -292,23 +342,3 @@ impl ClassfileWritable for Class {
         self.attributes.write_to_classfile(buffer);
     }
 }
-
-// Structs for accessing members of the class
-
-pub struct Field {
-    const_pool: RefCell<ConstPool>,
-    info: RefCell<FieldInfo>,
-}
-
-/*
-impl<'a> Field<'a> {
-
-    pub fn add_const_value_attribute(&'a mut self, value: ConstValue) -> Result<(), AttributeCreateError> {
-        self.info.add_attribute(NamedAttribute::new_const_value_attribute(
-            self.const_pool.borrow_mut(), value,
-        )?);
-
-        Ok(())
-    }
-}
- */

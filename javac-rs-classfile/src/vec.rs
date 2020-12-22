@@ -59,6 +59,10 @@ macro_rules! impl_size_limited_vec {
                 self.0.get(index as usize)
             }
 
+            pub fn get_mut(&mut self, index: $size_type) -> ::std::option::Option<&mut T> {
+                self.0.get_mut(index as usize)
+            }
+
             #[inline(always)]
             pub fn len(&self) -> $size_type { self.0.len() as $size_type }
 
@@ -79,6 +83,18 @@ macro_rules! impl_size_limited_vec {
                     self.0.push(element);
                     Ok(length)
                 } else { Err($crate::vec::JvmVecStoreError::OutOfBounds) }
+            }
+
+            pub fn push_get(&mut self, element: T)
+                            -> ::std::result::Result<&T, $crate::vec::JvmVecStoreError> {
+                let index = self.push(element)?;
+                Ok(self.get(index).unwrap())
+            }
+
+            pub fn push_get_mut(&mut self, element: T)
+                                -> ::std::result::Result<&mut T, $crate::vec::JvmVecStoreError> {
+                let index = self.push(element)?;
+                Ok(self.get_mut(index).unwrap())
             }
         }
 

@@ -1,17 +1,15 @@
 //! Structures related to fields of a class.
 
-use crate::attribute::{AttributeInfo, Attributable, NamedAttribute, AttributeAddError};
-use crate::writer::ClassfileWritable;
+use crate::attribute::{Attributable, NamedAttribute, AttributeAddError};
 use crate::classfile_writable;
 use crate::classfile_writable_mask_flags;
 use crate::constpool::{ConstPoolIndex, ConstUtf8Info};
-use std::io::Write;
 use crate::vec::JvmVecU2;
 
 classfile_writable! {
     #[doc = "Field structure as specified by \
     [#4.5](https://docs.oracle.com/javase/specs/jvms/se14/html/jvms-4.html#jvms-4.5)"]
-    #[derive(Debug)]
+    #[derive(Eq, PartialEq, Debug)]
     pub struct FieldInfo {
         access_flags: FieldAccessFlags,
         name: ConstPoolIndex<ConstUtf8Info>,

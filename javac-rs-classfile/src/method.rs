@@ -2,10 +2,8 @@
 
 use crate::classfile_writable_mask_flags;
 
-use crate::attribute::{AttributeInfo, NamedAttribute, Attributable, AttributeAddError};
-use crate::writer::ClassfileWritable;
+use crate::attribute::{NamedAttribute, Attributable, AttributeAddError};
 use crate::constpool::{ConstPoolIndex, ConstUtf8Info};
-use std::io::Write;
 use crate::vec::JvmVecU2;
 use crate::classfile_writable;
 
