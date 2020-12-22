@@ -1,6 +1,7 @@
 use crate::class::{ClassfileWritable, Tagged};
 use crate::constpool::{ConstClassInfo, ConstPoolIndex};
 use crate::vec::JvmVecU2;
+use std::io::Write;
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum StackMapFrame {
@@ -63,7 +64,7 @@ impl StackMapFrame {
 }
 
 impl ClassfileWritable for StackMapFrame {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         self.frame_type().write_to_classfile(buffer);
         match self {
             Self::SameFrame { .. } => {}
@@ -164,7 +165,7 @@ impl Tagged for VerificationTypeInfo {
 }
 
 impl ClassfileWritable for VerificationTypeInfo {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         self.tag().write_to_classfile(buffer);
         match self {
             VerificationTypeInfo::Top => {}

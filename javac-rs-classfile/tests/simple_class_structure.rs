@@ -6,7 +6,7 @@ use std::io::Write;
 fn create_minimal_class_file() {
     let class = Class::new(
         ClassfileVersion::of_major(major_versions::JAVA_14),
-        ClassAccessFlag::Public | ClassAccessFlag::Super | ClassAccessFlag::Final,
+        ClassAccessFlag::Public | ClassAccessFlag::Final | ClassAccessFlag::Super,
         String::from("ru/progrm_jarvis/javacrs/TestClass"),
         String::from("java/lang/Object"),
     );
@@ -22,4 +22,14 @@ fn create_minimal_class_file() {
     file.write(&buffer).unwrap();
 
     // TODO: check class correctness via bundled javap
+}
+
+#[test]
+fn create_minimal_class_file_with_fields() {
+    let mut class = Class::new(
+        ClassfileVersion::of_major(major_versions::JAVA_14),
+        ClassAccessFlag::Public | ClassAccessFlag::Final | ClassAccessFlag::Super,
+        String::from("ru/progrm_jarvis/javacrs/TestClassWithFields"),
+        String::from("java/lang/Object"),
+    );
 }

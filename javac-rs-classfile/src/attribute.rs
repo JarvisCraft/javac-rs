@@ -13,6 +13,7 @@ use crate::module::{
     ModuleExports, ModuleFlags, ModuleOpens, ModuleProvides, ModuleRequires, ModuleUses,
 };
 use crate::vec::{JvmVecU1, JvmVecU2, JvmVecU4};
+use std::io::Write;
 
 ///"Attribute of classfile member as specified by
 /// [#4.7](https://docs.oracle.com/javase/specs/jvms/se14/html/jvms-4.html#jvms-4.7).
@@ -50,7 +51,7 @@ pub enum AttributeInfo {
 }
 
 impl ClassfileWritable for AttributeInfo {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         match self {
             Self::ConstantValue(v) => v.write_to_classfile(buffer),
             Self::Code(v) => v.write_to_classfile(buffer),
@@ -173,7 +174,7 @@ pub struct SourceDebugExtensionAttribute {
 }
 
 impl ClassfileWritable for SourceDebugExtensionAttribute {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         for entry in &self.debug_extension {
             entry.write_to_classfile(buffer);
         }

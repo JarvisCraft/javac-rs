@@ -12,13 +12,13 @@ use thiserror::Error;
 
 /// An object which can be written into classfile.
 pub trait ClassfileWritable {
-    /// Writes the bytes into the given buffer.
+    /// Writes the bytes of a class into the given buffer.
     ///
     /// # Arguments
     ///
     /// * `buffer` - classfile byte-buffer into which this object should be written
     /// * `const_pool` - const pool to be used for
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>);
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W);
 
     /// Creates a new [byte-vector](Vec) from this object.
     fn to_classfile_bytes(&self) -> Vec<u8> {
@@ -52,7 +52,7 @@ macro_rules! classfile_writable {
         )*}
 
         impl $crate::class::ClassfileWritable for $struct_name {
-            fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+            fn write_to_classfile<W: ::std::io::Write>(&self, buffer: &mut W) {
                 $(self.$field.write_to_classfile(buffer);)*
             }
         }
@@ -65,7 +65,7 @@ macro_rules! classfile_writable {
         $struct_visibility struct $struct_name;
 
         impl $crate::class::ClassfileWritable for $struct_name {
-            fn write_to_classfile(&self, _: &mut Vec<u8>) {}
+            fn write_to_classfile<W: ::std::io::Write>(&self, _: &mut W) {}
         }
     }
 }
@@ -92,7 +92,7 @@ macro_rules! classfile_writable_mask_flags {
         }
 
         impl $crate::class::ClassfileWritable for $flags_name {
-            fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+            fn write_to_classfile<W: ::std::io::Write>(&self, buffer: &mut W) {
             println!("Writing <{:?}> as {}", self, self.mask());
                 self.mask().write_to_classfile(buffer);
             }
@@ -138,7 +138,7 @@ impl Clone for ClassfileVersion {
 impl Copy for ClassfileVersion {}
 
 impl ClassfileWritable for ClassfileVersion {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         // note: the order differs from the structure
         self.minor_version.write_to_classfile(buffer);
         self.major_version.write_to_classfile(buffer);
@@ -162,7 +162,7 @@ classfile_writable_mask_flags! {
 }
 
 impl ClassfileWritable for [u8] {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         buffer.write(self).unwrap();
     }
 }
@@ -170,7 +170,7 @@ impl ClassfileWritable for [u8] {
 macro_rules! impl_primitive_classfile_writable {
     ($($numeric:ty)*) => {$(
         impl $crate::class::ClassfileWritable for $numeric {
-            fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+            fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
                 buffer.write(self.to_be_bytes().as_ref()).unwrap();
             }
         }
@@ -243,7 +243,7 @@ impl Class {
 
 // Classfile itself is also classfile writable although it is meant to be a top-level node
 impl ClassfileWritable for Class {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         CLASSFILE_HEADER.write_to_classfile(buffer);
 
         self.version.write_to_classfile(buffer);

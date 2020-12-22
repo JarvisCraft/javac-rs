@@ -10,6 +10,7 @@ use std::convert::{TryFrom, TryInto};
 use std::marker::PhantomData;
 use std::ops::Deref;
 use thiserror::Error;
+use std::io::Write;
 
 #[derive(Error, Debug)]
 pub enum ConstPoolStoreError {
@@ -73,7 +74,7 @@ impl TryFrom<usize> for RawConstPoolIndex {
 
 // Simply write wrapped numeric index
 impl ClassfileWritable for RawConstPoolIndex {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         self.0.write_to_classfile(buffer);
     }
 }
@@ -124,7 +125,7 @@ impl<T: ConstPoolEntryInfo> TryFrom<usize> for ConstPoolIndex<T> {
 // Simple use internal write implementation of raw index
 // as the index itself does not preserve any type information
 impl<T: ConstPoolEntryInfo> ClassfileWritable for ConstPoolIndex<T> {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         self.0.write_to_classfile(buffer);
     }
 }
@@ -411,7 +412,7 @@ impl ConstPoolRefAt<ConstClassInfo> for ConstPool {
 
 // Simply write internal limited Vec which corresponds to VM representation
 impl ClassfileWritable for ConstPool {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         // JvmVecU2<_>::write_to_classfile() implementation cannot be used
         // as the specification requires slot 0 to be empty
         // TODO: check for bounds with respect to this limitation
@@ -528,7 +529,7 @@ impl_traits_for_const_pool_entry! {
 }
 
 impl ClassfileWritable for ConstPoolEntry {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         if *self == Empty {
             return;
         }
@@ -624,7 +625,7 @@ impl_try_into_for_loadable_const_pool_entry_info! {
     Dynamic => ConstDynamicInfo,
 }
 impl ClassfileWritable for LoadableConstPoolEntryInfo {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         match self {
             Self::Integer(info) => info.write_to_classfile(buffer),
             Self::Float(info) => info.write_to_classfile(buffer),
@@ -850,7 +851,7 @@ impl ConstPoolEntryInfo for ConstMethodHandleInfo {
 }
 
 impl ClassfileWritable for ConstMethodHandleInfo {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         self.tag().write_to_classfile(buffer);
         match self {
             Self::GetField(index) => {

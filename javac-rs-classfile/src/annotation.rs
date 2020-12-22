@@ -5,6 +5,7 @@ use crate::constpool::{
     ConstUtf8Info, RawConstPoolIndex,
 };
 use crate::vec::{JvmVecU1, JvmVecU2};
+use std::io::Write;
 
 classfile_writable! {
     #[derive(Eq, PartialEq, Debug)]
@@ -40,7 +41,7 @@ pub enum ElementValue {
 }
 
 impl ClassfileWritable for ElementValue {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         self.tag().write_to_classfile(buffer);
         match self {
             Self::Byte(index) => index.write_to_classfile(buffer),
@@ -359,7 +360,7 @@ classfile_writable! {
 }
 
 impl ClassfileWritable for TargetInfo {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         match self {
             Self::TypeParameterTarget(kind, info) => {
                 kind.tag().write_to_classfile(buffer);

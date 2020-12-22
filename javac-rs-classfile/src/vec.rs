@@ -90,7 +90,7 @@ macro_rules! impl_size_limited_vec {
         }
 
         impl<T: $crate::class::ClassfileWritable> $crate::class::ClassfileWritable for $name<T> {
-            fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+            fn write_to_classfile<W: ::std::io::Write>(&self, buffer: &mut W) {
                 self.len().write_to_classfile(buffer);
                 for element in &self.0 { element.write_to_classfile(buffer); }
             }

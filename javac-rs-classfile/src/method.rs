@@ -5,6 +5,7 @@ use crate::classfile_writable_mask_flags;
 use crate::attribute::AttributeInfo;
 use crate::class::ClassfileWritable;
 use crate::constpool::{ConstPoolIndex, ConstUtf8Info};
+use std::io::Write;
 
 /// Type of field attributes' count
 type MethodAttributeCount = u16;
@@ -20,7 +21,7 @@ pub struct MethodInfo {
 }
 
 impl ClassfileWritable for MethodInfo {
-    fn write_to_classfile(&self, buffer: &mut Vec<u8>) {
+    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
         self.access_flags.write_to_classfile(buffer);
         self.name.write_to_classfile(buffer);
         self.descriptor.write_to_classfile(buffer);
