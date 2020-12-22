@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Write;
 
 #[test]
-fn create_simple_class_file() {
+fn create_minimal_class_file() {
     let class = Class::new(
         ClassfileVersion::of_major(major_versions::JAVA_14),
         ClassAccessFlag::Public | ClassAccessFlag::Super | ClassAccessFlag::Final,
