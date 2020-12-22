@@ -207,14 +207,10 @@ impl Class {
         }
     }
 
-    fn add_interface(&mut self, interface: String) -> Result<(), ClassStoreError> {
+    pub fn add_interface(&mut self, interface: String) -> Result<(), ClassStoreError> {
         let interface = self.const_pool.store_const_class_info(interface)?;
         self.interfaces.push(interface)?;
         Ok(())
-    }
-
-    fn _add_interface(&mut self, _interface: ConstClassInfo) -> Result<(), ClassStoreError> {
-        unimplemented!() // TODO
     }
 
     fn add_field(&mut self, _field: FieldInfo) -> Result<(), ClassStoreError> {
