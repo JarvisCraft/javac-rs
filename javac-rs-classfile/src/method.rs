@@ -10,12 +10,19 @@ use crate::classfile_writable;
 classfile_writable! {
     #[doc = "Method structure as specified by \
     [#4.6](https://docs.oracle.com/javase/specs/jvms/se14/html/jvms-4.html#jvms-4.6)."]
-    #[derive(Debug)]
+    #[derive(Eq, PartialEq, Debug)]
     pub struct MethodInfo {
         access_flags: MethodAccessFlags,
         name: ConstPoolIndex<ConstUtf8Info>,
         descriptor: ConstPoolIndex<ConstUtf8Info>,
         attributes: JvmVecU2<NamedAttribute>,
+    }
+}
+
+impl MethodInfo {
+    pub fn new(access_flags: MethodAccessFlags, name: ConstPoolIndex<ConstUtf8Info>,
+               descriptor: ConstPoolIndex<ConstUtf8Info>) -> Self {
+        Self { access_flags, name, descriptor, attributes: JvmVecU2::new() }
     }
 }
 
