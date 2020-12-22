@@ -1,7 +1,7 @@
 //! Structures related to fields of a class.
 
 use crate::attribute::AttributeInfo;
-use crate::class::ClassfileWritable;
+use crate::writer::ClassfileWritable;
 use crate::classfile_writable_mask_flags;
 use crate::constpool::{ConstPoolIndex, ConstUtf8Info};
 use std::io::Write;

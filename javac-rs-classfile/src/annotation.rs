@@ -1,4 +1,4 @@
-use crate::class::{ClassfileWritable, Tagged};
+use crate::class::Tagged;
 use crate::classfile_writable;
 use crate::constpool::{
     ConstDoubleInfo, ConstFloatInfo, ConstIntegerInfo, ConstLongInfo, ConstPoolIndex,
@@ -6,6 +6,7 @@ use crate::constpool::{
 };
 use crate::vec::{JvmVecU1, JvmVecU2};
 use std::io::Write;
+use crate::writer::ClassfileWritable;
 
 classfile_writable! {
     #[derive(Eq, PartialEq, Debug)]

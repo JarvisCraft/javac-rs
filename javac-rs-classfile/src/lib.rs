@@ -13,3 +13,4 @@ pub mod writer;
 
 pub use class::*;
 pub use defs::*;
+pub use writer::*;

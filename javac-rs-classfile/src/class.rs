@@ -9,25 +9,7 @@ use crate::method::MethodInfo;
 use crate::vec::JvmVecU2;
 use std::io::Write;
 use thiserror::Error;
-
-/// An object which can be written into classfile.
-pub trait ClassfileWritable {
-    /// Writes the bytes of a class into the given buffer.
-    ///
-    /// # Arguments
-    ///
-    /// * `buffer` - classfile byte-buffer into which this object should be written
-    /// * `const_pool` - const pool to be used for
-    fn write_to_classfile<W: Write>(&self, buffer: &mut W);
-
-    /// Creates a new [byte-vector](Vec) from this object.
-    fn to_classfile_bytes(&self) -> Vec<u8> {
-        let mut buffer = Vec::new();
-        self.write_to_classfile(&mut buffer);
-
-        buffer
-    }
-}
+use crate::writer::ClassfileWritable;
 
 pub trait Tagged {
     type TagType;
@@ -51,7 +33,7 @@ macro_rules! classfile_writable {
             $field_visibility $field: $type,
         )*}
 
-        impl $crate::class::ClassfileWritable for $struct_name {
+        impl $crate::writer::ClassfileWritable for $struct_name {
             fn write_to_classfile<W: ::std::io::Write>(&self, buffer: &mut W) {
                 $(self.$field.write_to_classfile(buffer);)*
             }
@@ -64,7 +46,7 @@ macro_rules! classfile_writable {
         $(#$struct_attribute)*
         $struct_visibility struct $struct_name;
 
-        impl $crate::class::ClassfileWritable for $struct_name {
+        impl $crate::writer::ClassfileWritable for $struct_name {
             fn write_to_classfile<W: ::std::io::Write>(&self, _: &mut W) {}
         }
     }
@@ -91,7 +73,7 @@ macro_rules! classfile_writable_mask_flags {
             )*}
         }
 
-        impl $crate::class::ClassfileWritable for $flags_name {
+        impl $crate::writer::ClassfileWritable for $flags_name {
             fn write_to_classfile<W: ::std::io::Write>(&self, buffer: &mut W) {
             println!("Writing <{:?}> as {}", self, self.mask());
                 self.mask().write_to_classfile(buffer);
@@ -169,7 +151,7 @@ impl ClassfileWritable for [u8] {
 
 macro_rules! impl_primitive_classfile_writable {
     ($($numeric:ty)*) => {$(
-        impl $crate::class::ClassfileWritable for $numeric {
+        impl $crate::writer::ClassfileWritable for $numeric {
             fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
                 buffer.write(self.to_be_bytes().as_ref()).unwrap();
             }

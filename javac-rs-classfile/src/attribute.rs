@@ -1,7 +1,7 @@
 //! Structures related to attributes of a class.
 
 use crate::annotation::{Annotation, ElementValue, TypeAnnotation};
-use crate::class::{ClassAccessFlags, ClassfileWritable};
+use crate::class::ClassAccessFlags;
 use crate::classfile_writable;
 use crate::constpool::{
     ConstClassInfo, ConstNameAndTypeInfo, ConstPackageInfo, ConstPoolIndex, ConstUtf8Info,
@@ -14,6 +14,7 @@ use crate::module::{
 };
 use crate::vec::{JvmVecU1, JvmVecU2, JvmVecU4};
 use std::io::Write;
+use crate::writer::ClassfileWritable;
 
 ///"Attribute of classfile member as specified by
 /// [#4.7](https://docs.oracle.com/javase/specs/jvms/se14/html/jvms-4.html#jvms-4.7).

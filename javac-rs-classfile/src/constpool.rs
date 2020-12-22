@@ -3,7 +3,7 @@
 
 use crate::classfile_writable;
 
-use crate::class::{ClassfileWritable, Tagged};
+use crate::class::Tagged;
 use crate::constpool::ConstPoolEntry::Empty;
 use crate::vec::{JvmVecCreationError, JvmVecU2};
 use std::convert::{TryFrom, TryInto};
@@ -11,6 +11,7 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 use thiserror::Error;
 use std::io::Write;
+use crate::writer::ClassfileWritable;
 
 #[derive(Error, Debug)]
 pub enum ConstPoolStoreError {
