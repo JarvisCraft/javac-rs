@@ -93,5 +93,69 @@ macro_rules! mask_flags {
 
             fn is_set(&self, flag: &$flag_name) -> bool { self.0 & flag.mask() != $default }
         }
+
+        impl ::std::ops::BitOr for $flag_name {
+            type Output = $flags_name;
+
+            fn bitor(self, rhs: Self) -> Self::Output {
+                $flags_name(self.mask() | rhs.mask())
+            }
+        }
+
+        impl ::std::ops::BitAnd for $flag_name {
+            type Output = $flags_name;
+
+            fn bitand(self, rhs: Self) -> Self::Output {
+                $flags_name(self.mask() & rhs.mask())
+            }
+        }
+
+        impl ::std::ops::BitOr<$flags_name> for $flag_name {
+            type Output = $flags_name;
+
+            fn bitor(self, rhs: $flags_name) -> Self::Output {
+                $flags_name(self.mask() | rhs.mask())
+            }
+        }
+
+        impl ::std::ops::BitAnd<$flags_name> for $flag_name {
+            type Output = $flags_name;
+
+            fn bitand(self, rhs: $flags_name) -> Self::Output {
+                $flags_name(self.mask() & rhs.mask())
+            }
+        }
+
+        impl ::std::ops::BitOr for $flags_name {
+            type Output = Self;
+
+            fn bitor(self, rhs: Self) -> Self::Output {
+                $flags_name(self.0 | rhs.0)
+            }
+        }
+
+        impl ::std::ops::BitAnd for $flags_name {
+            type Output = Self;
+
+            fn bitand(self, rhs: Self) -> Self::Output {
+                $flags_name(self.0 & rhs.0)
+            }
+        }
+
+        impl ::std::ops::BitOr<$flag_name> for $flags_name {
+            type Output = Self;
+
+            fn bitor(self, rhs: $flag_name) -> Self::Output {
+                $flags_name(self.0 | rhs.mask())
+            }
+        }
+
+        impl ::std::ops::BitAnd<$flag_name> for $flags_name {
+            type Output = Self;
+
+            fn bitand(self, rhs: $flag_name) -> Self::Output {
+                $flags_name(self.0 & rhs.mask())
+            }
+        }
     };
 }
