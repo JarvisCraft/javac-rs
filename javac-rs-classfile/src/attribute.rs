@@ -3,18 +3,66 @@
 use crate::annotation::{Annotation, ElementValue, TypeAnnotation};
 use crate::class::ClassAccessFlags;
 use crate::classfile_writable;
-use crate::constpool::{
-    ConstClassInfo, ConstNameAndTypeInfo, ConstPackageInfo, ConstPoolIndex, ConstUtf8Info,
-    LoadableConstPoolEntryInfo,
-};
+use crate::constpool::{ConstClassInfo, ConstNameAndTypeInfo, ConstPackageInfo, ConstPoolIndex, ConstUtf8Info, LoadableConstPoolEntryInfo, ConstPool, ConstValueInfo, ConstValue, ConstPoolStoreError};
 use crate::frame::StackMapFrame;
 use crate::method::MethodAccessFlags;
 use crate::module::{
     ModuleExports, ModuleFlags, ModuleOpens, ModuleProvides, ModuleRequires, ModuleUses,
 };
-use crate::vec::{JvmVecU1, JvmVecU2, JvmVecU4};
+use crate::vec::{JvmVecU1, JvmVecU2, JvmVecU4, JvmVecStoreError};
 use std::io::Write;
 use crate::writer::ClassfileWritable;
+use thiserror::Error;
+use std::convert::TryFrom;
+
+/// An error which may occur while creating a new attribute.
+#[derive(Error, Debug)]
+pub enum AttributeCreateError {
+    #[error("Target const pool is out of space")]
+    ConstPoolOutOfSpace(#[from] ConstPoolStoreError),
+}
+
+/// An error which may occur while adding a new attribute.
+#[derive(Error, Debug)]
+pub enum AttributeAddError {
+    #[error("JVM vector of attributes is out of space")]
+    OutOfSpace(#[from] JvmVecStoreError),
+}
+
+classfile_writable! {
+    #[doc = "Named attribute."]
+    #[derive(Eq, PartialEq, Debug)]
+    pub struct NamedAttribute {
+        name: ConstPoolIndex<ConstUtf8Info>,
+        info: AttributeInfo,
+    }
+}
+
+impl NamedAttribute {
+    pub fn new(name: ConstPoolIndex<ConstUtf8Info>, info: AttributeInfo) -> Self {
+        Self { name, info }
+    }
+
+    // Factories for creation of attributes
+
+    pub fn new_const_value_attribute(const_pool: &mut ConstPool, value: ConstValue)
+                                     -> Result<NamedAttribute, AttributeCreateError> {
+        let name = const_pool.store_const_utf8_info(String::from("ConstantValue"))?;
+        let value = const_pool.store_const_value_info(value)?;
+
+        Ok(NamedAttribute { name, info: AttributeInfo::ConstantValue(ConstantValueAttribute { value }) })
+    }
+
+    pub fn new_custom_attribute(const_pool: &mut ConstPool, name: String, payload: JvmVecU4<u8>)
+                                -> Result<NamedAttribute, AttributeCreateError> {
+        Ok(NamedAttribute { name: const_pool.store_const_utf8_info(name)?, info: AttributeInfo::Custom(CustomAttribute { payload }) })
+    }
+}
+
+/// A class member which may have attributes.
+pub trait Attributable {
+    fn add_attribute(&mut self, attribute: NamedAttribute) -> Result<(), AttributeAddError>;
+}
 
 ///"Attribute of classfile member as specified by
 /// [#4.7](https://docs.oracle.com/javase/specs/jvms/se14/html/jvms-4.html#jvms-4.7).
@@ -53,43 +101,51 @@ pub enum AttributeInfo {
 
 impl ClassfileWritable for AttributeInfo {
     fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
-        match self {
-            Self::ConstantValue(v) => v.write_to_classfile(buffer),
-            Self::Code(v) => v.write_to_classfile(buffer),
-            Self::StackMapTable(v) => v.write_to_classfile(buffer),
-            Self::Exceptions(v) => v.write_to_classfile(buffer),
-            Self::InnerClasses(v) => v.write_to_classfile(buffer),
-            Self::EnclosingMethod(v) => v.write_to_classfile(buffer),
-            Self::Synthetic(v) => v.write_to_classfile(buffer),
-            Self::Signature(v) => v.write_to_classfile(buffer),
-            Self::SourceFile(v) => v.write_to_classfile(buffer),
-            Self::SourceDebugExtension(v) => v.write_to_classfile(buffer),
-            Self::LineNumberTable(v) => v.write_to_classfile(buffer),
-            Self::LocalVariableTable(v) => v.write_to_classfile(buffer),
-            Self::LocalVariableTypeTable(v) => v.write_to_classfile(buffer),
-            Self::Deprecated(v) => v.write_to_classfile(buffer),
-            Self::RuntimeVisibleAnnotations(v) => v.write_to_classfile(buffer),
-            Self::RuntimeInvisibleAnnotations(v) => v.write_to_classfile(buffer),
-            Self::RuntimeVisibleParameterAnnotations(v) => v.write_to_classfile(buffer),
-            Self::RuntimeInvisibleParameterAnnotations(v) => v.write_to_classfile(buffer),
-            Self::RuntimeVisibleTypeAnnotations(v) => v.write_to_classfile(buffer),
-            Self::RuntimeInvisibleTypeAnnotations(v) => v.write_to_classfile(buffer),
-            Self::AnnotationDefault(v) => v.write_to_classfile(buffer),
-            Self::BootstrapMethods(v) => v.write_to_classfile(buffer),
-            Self::MethodParameters(v) => v.write_to_classfile(buffer),
-            Self::Module(v) => v.write_to_classfile(buffer),
-            Self::ModulePackages(v) => v.write_to_classfile(buffer),
-            Self::ModuleMainClass(v) => v.write_to_classfile(buffer),
-            Self::NestHost(v) => v.write_to_classfile(buffer),
-            Self::NestMembers(v) => v.write_to_classfile(buffer),
-            Self::Custom(v) => v.write_to_classfile(buffer),
+        if let Self::Custom(custom) = self {
+            custom.write_to_classfile(buffer);
+        } else {
+            // TODO alloc-free implementation
+            let mut tmp_buffer = Vec::<u8>::new();
+            match self {
+                Self::ConstantValue(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::Code(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::StackMapTable(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::Exceptions(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::InnerClasses(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::EnclosingMethod(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::Synthetic(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::Signature(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::SourceFile(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::SourceDebugExtension(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::LineNumberTable(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::LocalVariableTable(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::LocalVariableTypeTable(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::Deprecated(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::RuntimeVisibleAnnotations(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::RuntimeInvisibleAnnotations(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::RuntimeVisibleParameterAnnotations(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::RuntimeInvisibleParameterAnnotations(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::RuntimeVisibleTypeAnnotations(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::RuntimeInvisibleTypeAnnotations(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::AnnotationDefault(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::BootstrapMethods(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::MethodParameters(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::Module(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::ModulePackages(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::ModuleMainClass(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::NestHost(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::NestMembers(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::Custom(..) => unsafe { ::std::hint::unreachable_unchecked() },
+            };
+            // TODO get rid of unwrapping by using result for return type
+            JvmVecU4::try_from(tmp_buffer).unwrap().write_to_classfile(buffer);
         }
     }
 }
 
 classfile_writable! {
     #[derive(Eq, PartialEq, Debug)]
-    pub struct ConstantValueAttribute { value: ConstPoolIndex<ConstUtf8Info> }
+    pub struct ConstantValueAttribute { value: ConstPoolIndex<ConstValueInfo> }
 }
 
 classfile_writable! {
@@ -363,7 +419,6 @@ classfile_writable!(
 classfile_writable!(
     #[derive(Eq, PartialEq, Debug)]
     pub struct CustomAttribute {
-        name: ConstPoolIndex<ConstUtf8Info>,
-        classes: JvmVecU4<u8>,
+        payload: JvmVecU4<u8>,
     }
 );

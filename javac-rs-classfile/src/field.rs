@@ -1,33 +1,36 @@
 //! Structures related to fields of a class.
 
-use crate::attribute::AttributeInfo;
+use crate::attribute::{AttributeInfo, Attributable, NamedAttribute, AttributeAddError};
 use crate::writer::ClassfileWritable;
+use crate::classfile_writable;
 use crate::classfile_writable_mask_flags;
 use crate::constpool::{ConstPoolIndex, ConstUtf8Info};
 use std::io::Write;
+use crate::vec::JvmVecU2;
 
-/// Type of field attributes' count
-type FieldAttributeCount = u16;
-
-/// Field structure as specified by
-/// [#4.5](https://docs.oracle.com/javase/specs/jvms/se14/html/jvms-4.html#jvms-4.5).
-#[derive(Debug)]
-pub struct FieldInfo {
-    access_flags: FieldAccessFlags,
-    name: ConstPoolIndex<ConstUtf8Info>,
-    descriptor: ConstPoolIndex<ConstUtf8Info>,
-    attributes: Vec<AttributeInfo>,
+classfile_writable! {
+    #[doc = "Field structure as specified by \
+    [#4.5](https://docs.oracle.com/javase/specs/jvms/se14/html/jvms-4.html#jvms-4.5)"]
+    #[derive(Debug)]
+    pub struct FieldInfo {
+        access_flags: FieldAccessFlags,
+        name: ConstPoolIndex<ConstUtf8Info>,
+        descriptor: ConstPoolIndex<ConstUtf8Info>,
+        attributes: JvmVecU2<NamedAttribute>,
+    }
 }
 
-impl ClassfileWritable for FieldInfo {
-    fn write_to_classfile<W: Write>(&self, buffer: &mut W) {
-        self.access_flags.write_to_classfile(buffer);
-        self.name.write_to_classfile(buffer);
-        self.descriptor.write_to_classfile(buffer);
-        (self.attributes.len() as FieldAttributeCount).write_to_classfile(buffer);
-        for attribute in &self.attributes {
-            attribute.write_to_classfile(buffer);
-        }
+impl FieldInfo {
+    pub fn new(access_flags: FieldAccessFlags, name: ConstPoolIndex<ConstUtf8Info>,
+           descriptor: ConstPoolIndex<ConstUtf8Info>) -> Self {
+        Self { access_flags, name, descriptor, attributes: JvmVecU2::new() }
+    }
+}
+
+impl Attributable for FieldInfo {
+    fn add_attribute(&mut self, attribute: NamedAttribute) -> Result<(), AttributeAddError> {
+        self.attributes.push(attribute)?;
+        Ok(())
     }
 }
 

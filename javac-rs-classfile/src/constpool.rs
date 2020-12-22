@@ -5,7 +5,7 @@ use crate::classfile_writable;
 
 use crate::class::Tagged;
 use crate::constpool::ConstPoolEntry::Empty;
-use crate::vec::{JvmVecCreateError, JvmVecU2, JvmVecStoreError};
+use crate::vec::{JvmVecCreateError, JvmVecU2};
 use std::convert::{TryFrom, TryInto};
 use std::marker::PhantomData;
 use std::ops::Deref;
@@ -185,7 +185,7 @@ impl ConstPool {
     ///
     /// * `index` - index at which to try to get the entry
     fn entry_at<T: ConstPoolEntryInfo>(&self, index: ConstPoolIndex<T>) -> Option<&ConstPoolEntry> {
-        self.entries.get(index.0 .0)
+        self.entries.get(index.0.0)
     }
 
     /// Gets the size of this const pool as `u16` which corresponds to its VM-type.
@@ -305,9 +305,7 @@ impl ConstPool {
         &mut self,
         value: f32,
     ) -> Result<ConstPoolIndex<ConstFloatInfo>, ConstPoolStoreError> {
-        self.store_entry_info(ConstFloatInfo {
-            value: value.to_bits(),
-        })
+        self.store_entry_info(ConstFloatInfo::from(value))
     }
 
     pub fn store_const_long_info(
@@ -321,9 +319,7 @@ impl ConstPool {
         &mut self,
         value: f64,
     ) -> Result<ConstPoolIndex<ConstDoubleInfo>, ConstPoolStoreError> {
-        self.store_entry_info(ConstDoubleInfo {
-            value: value.to_bits(),
-        })
+        self.store_entry_info(ConstDoubleInfo::from(value))
     }
 
     pub fn store_const_name_and_type_info(
@@ -357,6 +353,21 @@ impl ConstPool {
     }
 
     // TODO type-safe implementation for MethodHandle and InvokeDynamic elements
+
+    // helpers
+
+    pub fn store_const_value_info(
+        &mut self,
+        value: ConstValue,
+    ) -> Result<ConstPoolIndex<ConstValueInfo>, ConstPoolStoreError> {
+        match value {
+            ConstValue::Integer(value) => self.store_const_integer_info(value).map(|index| index.as_typed()),
+            ConstValue::Float(value) => self.store_const_float_info(value).map(|index| index.as_typed()),
+            ConstValue::Long(value) => self.store_const_long_info(value).map(|index| index.as_typed()),
+            ConstValue::Double(value) => self.store_const_double_info(value).map(|index| index.as_typed()),
+            ConstValue::String(value) => self.store_const_string_info(value).map(|index| index.as_typed()),
+        }
+    }
 }
 
 impl Default for ConstPool {
@@ -364,52 +375,6 @@ impl Default for ConstPool {
         Self::new()
     }
 }
-
-/*
-trait ConstPoolSpecification<T: ConstPoolEntryInfo> {
-
-    /// Gets the index of the specified const pool entry if it is present in the const pool.
-    ///
-    /// # Arguments
-    ///
-    /// * `entry` - entry whose index should be resolved
-    fn index_of<T: ConstPoolEntryInfo>(&self, entry: &T) -> Option<ConstPoolIndex<T>> {
-        self.entries
-            .iter()
-            .position(|checked_entry| checked_entry == entry)
-            .and_then(|index| ConstPoolIndex::try_from(index).ok())
-    }
-
-    fn force_store(&mut self, value: T) -> Option<ConstPoolIndex<T>> {
-        unimplemented!()
-    }
-
-    fn store(&mut self, value: T) -> Option<ConstPoolIndex<T>> {
-        self.index_of(value)
-            .or_else(move || { self.force_store(value) })
-    }
-}
-
-impl ConstPoolSpecification<ConstClassInfo> for ConstPool {
-
-}
- */
-
-/*
-trait ConstPoolRefAt<T: ConstPoolEntryInfo> {
-    fn ref_at(&self, index: ConstPoolIndex<T>) -> Option<ConstPoolRef<T>>;
-}
-
-impl ConstPoolRefAt<ConstClassInfo> for ConstPool {
-    fn ref_at(&self, index: ConstPoolIndex<ConstClassInfo>) -> Option<ConstPoolRef<ConstClassInfo>> {
-        self.entry_at(index)
-            .and_then(|&entry| {
-                let a: Result<ConstClassInfo, _> = entry.try_into();
-                a.ok()
-            })
-    }
-}
-*/
 
 // Simply write internal limited Vec which corresponds to VM representation
 impl ClassfileWritable for ConstPool {
@@ -753,6 +718,10 @@ impl_const_pool_entry_info! {
     pub struct ConstFloatInfo { value: u32 }
 }
 
+impl ConstFloatInfo {
+    pub fn from(value: f32) -> Self { Self { value: value.to_bits() } }
+}
+
 impl_const_pool_entry_info! {
     ConstPoolEntry::Long(..),
     #[derive(Eq, PartialEq, Debug)]
@@ -776,6 +745,8 @@ impl_const_pool_entry_info! {
 }
 
 impl ConstDoubleInfo {
+    pub fn from(value: f64) -> Self { Self { value: value.to_bits() } }
+
     pub fn high(&self) -> u32 {
         (self.value >> 32) as u32
     }
@@ -804,7 +775,7 @@ impl_const_pool_entry_info! {
 
 /// Either [`ConstMethodRefInfo`] or [`ConstInterfaceMethodRefInfo`].
 #[derive(Eq, PartialEq, Debug)]
-enum AnyMethodRefInfo {
+pub enum AnyMethodRefInfo {
     Method(ConstMethodRefInfo),
     InterfaceMethod(ConstInterfaceMethodRefInfo),
 }
@@ -941,3 +912,24 @@ mod tests {
         );
     }
 }
+
+pub enum ConstValue {
+    Integer(u32),
+    Float(f32),
+    Long(u64),
+    Double(f64),
+    String(String),
+}
+
+/// Either [`ConstIntegerInfo`], [`ConstFloatInfo`], [`ConstLongInfo`],
+/// [`ConstDoubleInfo`] or [`ConstStringInfo`].
+#[derive(Eq, PartialEq, Debug)]
+pub enum ConstValueInfo {
+    Integer(ConstIntegerInfo),
+    Float(ConstFloatInfo),
+    Long(ConstLongInfo),
+    Double(ConstDoubleInfo),
+    String(ConstStringInfo),
+}
+
+impl ConstPoolEntryInfo for ConstValueInfo {}

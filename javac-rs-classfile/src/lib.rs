@@ -13,4 +13,6 @@ pub mod writer;
 
 pub use class::*;
 pub use defs::*;
+pub use field::*;
 pub use writer::*;
+pub use vec::*;

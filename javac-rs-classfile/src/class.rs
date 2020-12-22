@@ -1,15 +1,16 @@
 //! Implementation of classfile-specific logic as specified by
 //! [#4](https://docs.oracle.com/javase/specs/jvms/se14/html/jvms-4.html).
 
-use crate::attribute::AttributeInfo;
+use crate::attribute::{AttributeInfo, Attributable, NamedAttribute, AttributeCreateError, AttributeAddError, CustomAttribute};
 use crate::constpool::{ConstClassInfo, ConstPool, ConstPoolIndex, ConstPoolStoreError};
 use crate::defs::CLASSFILE_HEADER;
-use crate::field::FieldInfo;
+use crate::field::{FieldInfo, FieldAccessFlags};
 use crate::method::MethodInfo;
-use crate::vec::{JvmVecU2, JvmVecCreateError, JvmVecStoreError};
+use crate::vec::{JvmVecU2, JvmVecStoreError, JvmVecU4};
 use std::io::Write;
 use thiserror::Error;
 use crate::writer::ClassfileWritable;
+use std::cell::{RefCell, Cell};
 
 pub trait Tagged {
     type TagType;
@@ -180,7 +181,7 @@ pub struct Class {
     interfaces: JvmVecU2<ConstPoolIndex<ConstClassInfo>>,
     fields: JvmVecU2<FieldInfo>,
     methods: JvmVecU2<MethodInfo>,
-    attributes: JvmVecU2<AttributeInfo>,
+    attributes: JvmVecU2<NamedAttribute>,
 }
 
 impl Class {
@@ -221,8 +222,18 @@ impl Class {
         unimplemented!() // TODO
     }
 
-    fn add_attribute(&mut self, _attribute: AttributeInfo) -> Result<(), ClassStoreError> {
-        unimplemented!() // TODO
+    pub fn add_custom_attribute(&mut self, name: String, payload: JvmVecU4<u8>) -> Result<(), AttributeCreateError> {
+        let attribute = NamedAttribute::new_custom_attribute(&mut self.const_pool, name, payload)?;
+        self.add_attribute(attribute);
+
+        Ok(())
+    }
+}
+
+impl Attributable for Class {
+    fn add_attribute(&mut self, attribute: NamedAttribute) -> Result<(), AttributeAddError> {
+        self.attributes.push(attribute)?;
+        Ok(())
     }
 }
 
