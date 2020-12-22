@@ -11,17 +11,10 @@ fn create_minimal_class_file() {
         String::from("java/lang/Object"),
     );
 
-    let mut buffer: Vec<u8> = Vec::new();
-
-    println!("{:#?}", class);
-    class.write_to_classfile(&mut buffer);
-    println!("{:?}", buffer);
-
     let mut file = File::create("TestClass.class").unwrap();
-    println!("Path to file: {:#?}", file);
-    file.write(&buffer).unwrap();
-
-    // TODO: check class correctness via bundled javap
+    println!("{:#?}", class);
+    class.write_to_classfile(&mut file);
+    println!("Written to file: {:#?}", file);
 }
 
 #[test]
