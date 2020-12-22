@@ -245,6 +245,24 @@ impl Class {
         self.add_attribute(attribute)?;
         Ok(())
     }
+
+    pub fn add_synthetic_attribute(&mut self) -> Result<(), AttributeAddError> {
+        let attribute = NamedAttribute::new_synthetic_attribute(&mut self.const_pool)?;
+        self.add_attribute(attribute)?;
+        Ok(())
+    }
+
+    pub fn add_deprecated_attribute(&mut self) -> Result<(), AttributeAddError> {
+        let attribute = NamedAttribute::new_deprecated_attribute(&mut self.const_pool)?;
+        self.add_attribute(attribute)?;
+        Ok(())
+    }
+
+    pub fn add_signature_attribute(&mut self, signature: String) -> Result<(), AttributeAddError> {
+        let attribute = NamedAttribute::new_signature_attribute(&mut self.const_pool, signature)?;
+        self.add_attribute(attribute)?;
+        Ok(())
+    }
 }
 
 impl Attributable for Class {

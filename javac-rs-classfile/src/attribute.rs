@@ -63,6 +63,30 @@ impl NamedAttribute {
         Ok(NamedAttribute { name, info: AttributeInfo::SourceFile(SourceFileAttribute { filename }) })
     }
 
+    pub fn new_synthetic_attribute(const_pool: &mut ConstPool)
+                                   -> Result<NamedAttribute, AttributeCreateError> {
+        Ok(NamedAttribute {
+            name: const_pool.store_const_utf8_info(String::from("Synthetic"))?,
+            info: AttributeInfo::Synthetic(SyntheticAttribute),
+        })
+    }
+
+    pub fn new_deprecated_attribute(const_pool: &mut ConstPool)
+                                    -> Result<NamedAttribute, AttributeCreateError> {
+        Ok(NamedAttribute {
+            name: const_pool.store_const_utf8_info(String::from("Deprecated"))?,
+            info: AttributeInfo::Deprecated(DeprecatedAttribute),
+        })
+    }
+
+    pub fn new_signature_attribute(const_pool: &mut ConstPool, signature: String)
+                                   -> Result<NamedAttribute, AttributeCreateError> {
+        let name = const_pool.store_const_utf8_info(String::from("Signature"))?;
+        let signature = const_pool.store_const_utf8_info(signature)?;
+
+        Ok(NamedAttribute { name, info: AttributeInfo::Signature(SignatureAttribute { signature }) })
+    }
+
     pub fn new_custom_attribute(const_pool: &mut ConstPool, name: String, payload: JvmVecU4<u8>)
                                 -> Result<NamedAttribute, AttributeCreateError> {
         Ok(NamedAttribute { name: const_pool.store_const_utf8_info(name)?, info: AttributeInfo::Custom(CustomAttribute { payload }) })
