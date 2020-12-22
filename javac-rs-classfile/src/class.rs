@@ -235,10 +235,6 @@ impl ClassfileWritable for Class {
 
         self.const_pool.write_to_classfile(buffer);
 
-        {
-            let mut v: Vec<u8> = vec![];
-            self.access_flags.write_to_classfile(&mut v);
-        }
         self.access_flags.write_to_classfile(buffer);
 
         self.this_class.write_to_classfile(buffer);
