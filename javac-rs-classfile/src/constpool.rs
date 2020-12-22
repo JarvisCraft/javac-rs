@@ -535,7 +535,6 @@ impl ClassfileWritable for ConstPoolEntry {
             return;
         }
 
-        println!("Writing tag <{}> ({:?})", self.tag().to_string(), self);
         self.tag().write_to_classfile(buffer);
         match self {
             Self::Class(value) => value.write_to_classfile(buffer),

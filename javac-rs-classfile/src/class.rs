@@ -75,7 +75,6 @@ macro_rules! classfile_writable_mask_flags {
 
         impl $crate::writer::ClassfileWritable for $flags_name {
             fn write_to_classfile<W: ::std::io::Write>(&self, buffer: &mut W) {
-            println!("Writing <{:?}> as {}", self, self.mask());
                 self.mask().write_to_classfile(buffer);
             }
         }
@@ -243,7 +242,6 @@ impl ClassfileWritable for Class {
         {
             let mut v: Vec<u8> = vec![];
             self.access_flags.write_to_classfile(&mut v);
-            println!("ACC_FLAGS({:?}) = {:?}", self.access_flags, v);
         }
         self.access_flags.write_to_classfile(buffer);
 
