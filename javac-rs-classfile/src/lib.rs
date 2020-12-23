@@ -9,7 +9,8 @@ mod frame;
 mod method;
 mod module;
 mod vec;
-pub mod writer;
+mod writer;
+mod descriptor;
 
 pub use class::*;
 pub use defs::*;
@@ -18,3 +19,4 @@ pub use method::*;
 pub use writer::*;
 pub use constpool::*;
 pub use vec::*;
+pub use descriptor::*;
