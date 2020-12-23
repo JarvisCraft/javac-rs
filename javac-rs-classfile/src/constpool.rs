@@ -902,13 +902,13 @@ mod tests {
     fn test_const_pool_insert() {
         let mut const_pool = ConstPool::new();
         assert_eq!(
-            const_pool.store_entry(ConstIntegerInfo { value: 123 }).unwrap().0.0, 0u16
+            const_pool.store_entry_info(ConstIntegerInfo { value: 123 }).unwrap().0.0, 0u16
         );
         assert_eq!(
-            const_pool.store_entry(ConstIntegerInfo { value: 123 }).unwrap().0.0, 0u16
+            const_pool.store_entry_info(ConstIntegerInfo { value: 123 }).unwrap().0.0, 0u16
         );
         assert_eq!(
-            const_pool.store_entry(ConstIntegerInfo { value: 456 }).unwrap().0.0, 1u16
+            const_pool.store_entry_info(ConstIntegerInfo { value: 456 }).unwrap().0.0, 1u16
         );
     }
 }
