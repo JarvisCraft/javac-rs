@@ -55,6 +55,8 @@ macro_rules! impl_size_limited_vec {
 
             pub fn iter(&self) -> ::std::slice::Iter<T> { self.0.iter() }
 
+            pub fn into_iter(self) -> ::std::vec::IntoIter<T> { self.0.into_iter() }
+
             pub fn get(&self, index: $size_type) -> ::std::option::Option<&T> {
                 self.0.get(index as usize)
             }
