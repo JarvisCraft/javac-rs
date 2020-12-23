@@ -106,35 +106,35 @@ mod tests {
     fn array_1_descriptor_factory() {
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Byte, 1),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Byte)), "[B"
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Byte)),
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Char, 1),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Char)), "[C"
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Char)),
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Double, 1),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Double)), "[D"
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Double)),
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Float, 1),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Float)), "[F"
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Float)),
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Int, 1),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Int)), "[I"
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Int)),
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Long, 1),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Long)), "[J"
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Long)),
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Short, 1),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Short)), "[S"
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Short)),
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Boolean, 1),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Boolean)), "[Z"
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Boolean)),
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Class("some/test/ClassName".to_string()), 1),
