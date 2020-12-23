@@ -20,6 +20,16 @@ impl TypeDescriptor {
         for _ in 0..size { component = Self::Array(Box::new(component)) }
         component
     }
+
+    fn is_primitive(&self) -> bool {
+        matches!(self, Self::Byte | Self::Char | Self::Double | Self::Float | Self::Int | Self::Long | Self::Short | Self::Boolean)
+    }
+
+    fn is_reference(&self) -> bool {
+        matches!(self, Self::Class(..) | Self::Array(..))
+    }
+
+    fn is_array(&self) -> bool { matches!(self, Self::Array(..)) }
 }
 
 impl ToString for TypeDescriptor {
