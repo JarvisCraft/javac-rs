@@ -1,6 +1,9 @@
-use javac_rs_classfile::{Class, ClassfileVersion, major_versions, ClassfileWritable, MethodAccessFlag, ClassAccessFlag, ConstValue, JvmVecU4, Bytecode};
-use std::fs::File;
+use javac_rs_classfile::{
+    major_versions, Bytecode, Class, ClassAccessFlag, ClassfileVersion, ClassfileWritable,
+    ConstValue, JvmVecU4, MethodAccessFlag,
+};
 use std::convert::TryFrom;
+use std::fs::File;
 
 mod class_testing;
 
@@ -12,14 +15,21 @@ fn class_file_with_method_without_attributes() {
         String::from("ru/progrm_jarvis/javacrs/TestClassWithMethodWithoutAttributes"),
         String::from("java/lang/Object"),
     );
-    class.add_interface(String::from("java/io/Serializable")).unwrap();
-    class.add_method(
-        MethodAccessFlag::Public | MethodAccessFlag::Final,
-        String::from("foo"),
-        String::from("()I"),
-    ).unwrap();
+    class
+        .add_interface(String::from("java/io/Serializable"))
+        .unwrap();
+    class
+        .add_method(
+            MethodAccessFlag::Public | MethodAccessFlag::Final,
+            String::from("foo"),
+            String::from("()I"),
+        )
+        .unwrap();
 
-    class_testing::dump_class(class, "ru/progrm_jarvis/javacrs/TestClassWithMethodWithoutAttributes.class");
+    class_testing::dump_class(
+        class,
+        "ru/progrm_jarvis/javacrs/TestClassWithMethodWithoutAttributes.class",
+    );
 }
 
 #[test]
@@ -30,28 +40,39 @@ fn class_file_with_method_with_various_attributes() {
         String::from("ru/progrm_jarvis/javacrs/TestClassWithVariousAttributes"),
         String::from("java/lang/Object"),
     );
-    class.add_interface(String::from("java/io/Serializable")).unwrap();
+    class
+        .add_interface(String::from("java/io/Serializable"))
+        .unwrap();
     {
-        let method = class.add_method(
-            MethodAccessFlag::Public | MethodAccessFlag::Static,
-            String::from("bar"),
-            String::from("(Ljava/lang/String;)Z"),
-        ).unwrap();
+        let method = class
+            .add_method(
+                MethodAccessFlag::Public | MethodAccessFlag::Static,
+                String::from("bar"),
+                String::from("(Ljava/lang/String;)Z"),
+            )
+            .unwrap();
         class.method_add_deprecated_attribute(method);
         class.method_add_synthetic_attribute(method);
-        class.method_add_custom_attribute(
-            method,
-            String::from("\\_MagicalMethodAttribute_/"),
-            JvmVecU4::try_from(Vec::from("Oh hi magic".as_bytes())).unwrap(),
-        ).unwrap();
-        class.method_add_custom_attribute(
-            method,
-            String::from("////Wow, so much slashes"),
-            JvmVecU4::try_from(Vec::from("Yes of course".as_bytes())).unwrap(),
-        ).unwrap();
+        class
+            .method_add_custom_attribute(
+                method,
+                String::from("\\_MagicalMethodAttribute_/"),
+                JvmVecU4::try_from(Vec::from("Oh hi magic".as_bytes())).unwrap(),
+            )
+            .unwrap();
+        class
+            .method_add_custom_attribute(
+                method,
+                String::from("////Wow, so much slashes"),
+                JvmVecU4::try_from(Vec::from("Yes of course".as_bytes())).unwrap(),
+            )
+            .unwrap();
     }
 
-    class_testing::dump_class(class, "ru/progrm_jarvis/javacrs/TestClassWithVariousAttributes.class");
+    class_testing::dump_class(
+        class,
+        "ru/progrm_jarvis/javacrs/TestClassWithVariousAttributes.class",
+    );
 }
 
 #[test]
@@ -62,13 +83,17 @@ fn class_file_with_method_with_code_attribute() {
         String::from("ru/progrm_jarvis/javacrs/TestClassWithCodeAttribute"),
         String::from("java/lang/Object"),
     );
-    class.add_interface(String::from("java/io/Serializable")).unwrap();
+    class
+        .add_interface(String::from("java/io/Serializable"))
+        .unwrap();
     {
-        let method = class.add_method(
-            MethodAccessFlag::Public | MethodAccessFlag::Static,
-            String::from("bar"),
-            String::from("(Ljava/lang/String;)Ljava/lang/String;"),
-        ).unwrap();
+        let method = class
+            .add_method(
+                MethodAccessFlag::Public | MethodAccessFlag::Static,
+                String::from("bar"),
+                String::from("(Ljava/lang/String;)Ljava/lang/String;"),
+            )
+            .unwrap();
         let mut bytecode = Bytecode::new(1);
         bytecode.instr_aload(0).unwrap();
         bytecode.instr_areturn();
@@ -76,7 +101,10 @@ fn class_file_with_method_with_code_attribute() {
         class.method_add_code_attribute(method, bytecode);
     }
 
-    class_testing::dump_class(class, "ru/progrm_jarvis/javacrs/TestClassWithCodeAttribute.class");
+    class_testing::dump_class(
+        class,
+        "ru/progrm_jarvis/javacrs/TestClassWithCodeAttribute.class",
+    );
 }
 
 #[test]
@@ -87,38 +115,56 @@ fn class_file_with_hello_world_main_method() {
         String::from("ru/progrm_jarvis/javacrs/ClassWithHelloWorldMainMethod"),
         String::from("java/lang/Object"),
     );
-    class.add_interface(String::from("java/io/Serializable")).unwrap();
+    class
+        .add_interface(String::from("java/io/Serializable"))
+        .unwrap();
     {
-        let method = class.add_method(
-            MethodAccessFlag::Public | MethodAccessFlag::Static,
-            String::from("main"),
-            String::from("([Ljava/lang/String;)V"),
-        ).unwrap();
+        let method = class
+            .add_method(
+                MethodAccessFlag::Public | MethodAccessFlag::Static,
+                String::from("main"),
+                String::from("([Ljava/lang/String;)V"),
+            )
+            .unwrap();
         let mut bytecode = Bytecode::new(1);
         let mut const_pool = class.const_pool_mut();
 
         // getstatic System.out
-        bytecode.instr_getstatic(
-            const_pool.store_const_field_ref_info(
-                "java/lang/System".to_string(),
-                "out".to_string(),
-                "Ljava/io/PrintStream;".to_string(),
-            ).unwrap(), false,
-        ).unwrap();
+        bytecode
+            .instr_getstatic(
+                const_pool
+                    .store_const_field_ref_info(
+                        "java/lang/System".to_string(),
+                        "out".to_string(),
+                        "Ljava/io/PrintStream;".to_string(),
+                    )
+                    .unwrap(),
+                false,
+            )
+            .unwrap();
 
         // ldc "HelloWorld"
-        bytecode.instr_ldc(
-            const_pool.store_const_string_info("Hello world!".to_string()).unwrap()
-        ).unwrap();
+        bytecode
+            .instr_ldc(
+                const_pool
+                    .store_const_string_info("Hello world!".to_string())
+                    .unwrap(),
+            )
+            .unwrap();
 
         // invokevirtual PrintStream#println(String)
-        bytecode.instr_invokevirtual(
-            const_pool.store_const_method_ref_info(
-                "java/io/PrintStream".to_string(),
-                "println".to_string(),
-                "(Ljava/lang/String;)V".to_string(),
-            ).unwrap(), 1
-        ).unwrap();
+        bytecode
+            .instr_invokevirtual(
+                const_pool
+                    .store_const_method_ref_info(
+                        "java/io/PrintStream".to_string(),
+                        "println".to_string(),
+                        "(Ljava/lang/String;)V".to_string(),
+                    )
+                    .unwrap(),
+                1,
+            )
+            .unwrap();
 
         // return
         bytecode.instr_return().unwrap();
@@ -127,5 +173,8 @@ fn class_file_with_hello_world_main_method() {
         class.method_add_code_attribute(method, bytecode).unwrap();
     }
 
-    class_testing::dump_class(class, "ru/progrm_jarvis/javacrs/ClassWithHelloWorldMainMethod.class");
+    class_testing::dump_class(
+        class,
+        "ru/progrm_jarvis/javacrs/ClassWithHelloWorldMainMethod.class",
+    );
 }

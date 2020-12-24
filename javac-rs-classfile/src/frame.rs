@@ -1,8 +1,8 @@
 use crate::class::Tagged;
 use crate::constpool::{ConstClassInfo, ConstPoolIndex};
 use crate::vec::JvmVecU2;
-use std::io::Write;
 use crate::writer::ClassfileWritable;
+use std::io::Write;
 
 #[derive(Eq, PartialEq, Debug)]
 pub enum StackMapFrame {

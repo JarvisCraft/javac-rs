@@ -1,6 +1,6 @@
 use javac_rs_classfile::*;
-use std::fs::File;
 use std::convert::TryFrom;
+use std::fs::File;
 
 #[test]
 fn class_file_with_source_file_attribute() {
@@ -10,12 +10,15 @@ fn class_file_with_source_file_attribute() {
         String::from("ru/progrm_jarvis/javacrs/TestClassWithSourceFileAttribute"),
         String::from("java/lang/Object"),
     );
-    class.add_source_file_attribute(
-        String::from("ru/progrm_jarvis/javacrs/TestClassWithSourceFileAttribute.java")
-    ).unwrap();
+    class
+        .add_source_file_attribute(String::from(
+            "ru/progrm_jarvis/javacrs/TestClassWithSourceFileAttribute.java",
+        ))
+        .unwrap();
     let class = class;
 
-    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithSourceFileAttribute.class").unwrap();
+    let mut file =
+        File::create("ru/progrm_jarvis/javacrs/TestClassWithSourceFileAttribute.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);
@@ -32,7 +35,8 @@ fn class_file_with_synthetic_attribute() {
     class.add_synthetic_attribute().unwrap();
     let class = class;
 
-    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithSyntheticAttribute.class").unwrap();
+    let mut file =
+        File::create("ru/progrm_jarvis/javacrs/TestClassWithSyntheticAttribute.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);
@@ -49,7 +53,8 @@ fn class_file_with_deprecated_attribute() {
     class.add_deprecated_attribute().unwrap();
     let class = class;
 
-    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithDeprecatedAttribute.class").unwrap();
+    let mut file =
+        File::create("ru/progrm_jarvis/javacrs/TestClassWithDeprecatedAttribute.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);
@@ -63,12 +68,13 @@ fn class_file_with_signature_attribute() {
         String::from("ru/progrm_jarvis/javacrs/TestClassWithSignatureAttribute"),
         String::from("java/lang/Object"),
     );
-    class.add_signature_attribute(
-        String::from("<T:Ljava/lang/Object;>Ljava/lang/Object;")
-    ).unwrap();
+    class
+        .add_signature_attribute(String::from("<T:Ljava/lang/Object;>Ljava/lang/Object;"))
+        .unwrap();
     let class = class;
 
-    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithSignatureAttribute.class").unwrap();
+    let mut file =
+        File::create("ru/progrm_jarvis/javacrs/TestClassWithSignatureAttribute.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);
@@ -82,13 +88,16 @@ fn class_file_with_single_custom_attribute() {
         String::from("ru/progrm_jarvis/javacrs/TestClassWithSingleCustomAttribute"),
         String::from("java/lang/Object"),
     );
-    class.add_custom_attribute(
-        String::from("SomeCustomAttribute"),
-        JvmVecU4::try_from(Vec::from("Hello world".as_bytes())).unwrap(),
-    ).unwrap();
+    class
+        .add_custom_attribute(
+            String::from("SomeCustomAttribute"),
+            JvmVecU4::try_from(Vec::from("Hello world".as_bytes())).unwrap(),
+        )
+        .unwrap();
     let class = class;
 
-    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithSingleCustomAttribute.class").unwrap();
+    let mut file =
+        File::create("ru/progrm_jarvis/javacrs/TestClassWithSingleCustomAttribute.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);
@@ -102,17 +111,23 @@ fn class_file_with_multiple_custom_attributes() {
         String::from("ru/progrm_jarvis/javacrs/TestClassWithMultipleCustomAttributes"),
         String::from("java/lang/Object"),
     );
-    class.add_custom_attribute(
-        String::from("SomeCustomAttribute"),
-        JvmVecU4::try_from(Vec::from("Hello world".as_bytes())).unwrap(),
-    ).unwrap();
-    class.add_custom_attribute(
-        String::from("OtherCustomAttribute"),
-        JvmVecU4::try_from(Vec::from("How r u?".as_bytes())).unwrap(),
-    ).unwrap();
+    class
+        .add_custom_attribute(
+            String::from("SomeCustomAttribute"),
+            JvmVecU4::try_from(Vec::from("Hello world".as_bytes())).unwrap(),
+        )
+        .unwrap();
+    class
+        .add_custom_attribute(
+            String::from("OtherCustomAttribute"),
+            JvmVecU4::try_from(Vec::from("How r u?".as_bytes())).unwrap(),
+        )
+        .unwrap();
     let class = class;
 
-    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithMultipleCustomAttributes.class").unwrap();
+    let mut file =
+        File::create("ru/progrm_jarvis/javacrs/TestClassWithMultipleCustomAttributes.class")
+            .unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);

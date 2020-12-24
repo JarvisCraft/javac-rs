@@ -29,7 +29,10 @@ fn class_file_with_single_interface() {
     class.add_interface(String::from("java/io/Serializable"));
     let class = class;
 
-    class_testing::dump_class(class, "ru/progrm_jarvis/javacrs/TestClassWithSingleInterface");
+    class_testing::dump_class(
+        class,
+        "ru/progrm_jarvis/javacrs/TestClassWithSingleInterface",
+    );
 }
 
 #[test]
@@ -44,7 +47,8 @@ fn class_file_with_multiple_interface() {
     class.add_interface(String::from("java/io/Serializable"));
     let class = class;
 
-    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithMultipleInterfaces.class").unwrap();
+    let mut file =
+        File::create("ru/progrm_jarvis/javacrs/TestClassWithMultipleInterfaces.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);

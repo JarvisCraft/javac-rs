@@ -6,12 +6,12 @@ use crate::{classfile_writable, TypeDescriptor};
 use crate::class::Tagged;
 use crate::constpool::ConstPoolEntry::Empty;
 use crate::vec::{JvmVecCreateError, JvmVecU2};
+use crate::writer::ClassfileWritable;
 use std::convert::{TryFrom, TryInto};
+use std::io::Write;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use thiserror::Error;
-use std::io::Write;
-use crate::writer::ClassfileWritable;
 
 #[derive(Error, Debug)]
 pub enum ConstPoolStoreError {
@@ -28,7 +28,9 @@ pub enum ConstPoolStoreError {
 pub struct RawConstPoolIndex(u16);
 
 impl RawConstPoolIndex {
-    pub fn as_u16(&self) -> u16 { self.0 }
+    pub fn as_u16(&self) -> u16 {
+        self.0
+    }
 
     fn as_typed<T: ConstPoolEntryInfo>(&self) -> ConstPoolIndex<T> {
         ConstPoolIndex(self.clone(), PhantomData)
@@ -375,11 +377,21 @@ impl ConstPool {
         value: ConstValue,
     ) -> Result<ConstPoolIndex<ConstValueInfo>, ConstPoolStoreError> {
         match value {
-            ConstValue::Integer(value) => self.store_const_integer_info(value).map(|index| index.as_typed()),
-            ConstValue::Float(value) => self.store_const_float_info(value).map(|index| index.as_typed()),
-            ConstValue::Long(value) => self.store_const_long_info(value).map(|index| index.as_typed()),
-            ConstValue::Double(value) => self.store_const_double_info(value).map(|index| index.as_typed()),
-            ConstValue::String(value) => self.store_const_string_info(value).map(|index| index.as_typed()),
+            ConstValue::Integer(value) => self
+                .store_const_integer_info(value)
+                .map(|index| index.as_typed()),
+            ConstValue::Float(value) => self
+                .store_const_float_info(value)
+                .map(|index| index.as_typed()),
+            ConstValue::Long(value) => self
+                .store_const_long_info(value)
+                .map(|index| index.as_typed()),
+            ConstValue::Double(value) => self
+                .store_const_double_info(value)
+                .map(|index| index.as_typed()),
+            ConstValue::String(value) => self
+                .store_const_string_info(value)
+                .map(|index| index.as_typed()),
         }
     }
 }
@@ -733,7 +745,11 @@ impl_const_pool_entry_info! {
 }
 
 impl ConstFloatInfo {
-    pub fn from(value: f32) -> Self { Self { value: value.to_bits() } }
+    pub fn from(value: f32) -> Self {
+        Self {
+            value: value.to_bits(),
+        }
+    }
 }
 
 impl_const_pool_entry_info! {
@@ -759,7 +775,11 @@ impl_const_pool_entry_info! {
 }
 
 impl ConstDoubleInfo {
-    pub fn from(value: f64) -> Self { Self { value: value.to_bits() } }
+    pub fn from(value: f64) -> Self {
+        Self {
+            value: value.to_bits(),
+        }
+    }
 
     pub fn high(&self) -> u32 {
         (self.value >> 32) as u32
@@ -916,13 +936,13 @@ mod tests {
     fn test_const_pool_insert_balancing() {
         let mut const_pool = ConstPool::new();
         assert_eq!(
-            const_pool.store_entry_info(ConstIntegerInfo { value: 123 }).unwrap().0.0, 1u16
+            const_pool.store_entry_info(ConstIntegerInfo { value: 123 }).unwrap().as_u16(), 1u16
         );
         assert_eq!(
-            const_pool.store_entry_info(ConstIntegerInfo { value: 123 }).unwrap().0.0, 1u16
+            const_pool.store_entry_info(ConstIntegerInfo { value: 123 }).unwrap().as_u16(), 1u16
         );
         assert_eq!(
-            const_pool.store_entry_info(ConstIntegerInfo { value: 456 }).unwrap().0.0, 2u16
+            const_pool.store_entry_info(ConstIntegerInfo { value: 456 }).unwrap().as_u16(), 2u16
         );
     }
 }

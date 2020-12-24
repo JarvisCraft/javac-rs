@@ -1,17 +1,21 @@
 //! Implementation of classfile-specific logic as specified by
 //! [#4](https://docs.oracle.com/javase/specs/jvms/se14/html/jvms-4.html).
 
-use crate::attribute::{Attributable, NamedAttribute, AttributeCreateError, AttributeAddError, TryIntoNamedAttribute};
-use crate::constpool::{ConstClassInfo, ConstPool, ConstPoolIndex, ConstPoolStoreError, ConstValue};
+use crate::attribute::{
+    Attributable, AttributeAddError, AttributeCreateError, NamedAttribute, TryIntoNamedAttribute,
+};
+use crate::bytecode::Bytecode;
+use crate::constpool::{
+    ConstClassInfo, ConstPool, ConstPoolIndex, ConstPoolStoreError, ConstValue,
+};
 use crate::defs::CLASSFILE_HEADER;
-use crate::field::{FieldInfo, FieldAccessFlags};
-use crate::method::{MethodInfo, MethodAccessFlags};
-use crate::vec::{JvmVecU2, JvmVecStoreError, JvmVecU4};
+use crate::field::{FieldAccessFlags, FieldInfo};
+use crate::method::{MethodAccessFlags, MethodInfo};
+use crate::vec::{JvmVecStoreError, JvmVecU2, JvmVecU4};
+use crate::writer::ClassfileWritable;
+use crate::FieldDescriptor;
 use std::io::Write;
 use thiserror::Error;
-use crate::writer::ClassfileWritable;
-use crate::bytecode::Bytecode;
-use crate::FieldDescriptor;
 
 pub trait Tagged {
     type TagType;
@@ -223,9 +227,13 @@ impl Class {
         }
     }
 
-    pub fn const_pool(&self) -> &ConstPool { &self.const_pool }
+    pub fn const_pool(&self) -> &ConstPool {
+        &self.const_pool
+    }
 
-    pub fn const_pool_mut(&mut self) -> &mut ConstPool { &mut self.const_pool }
+    pub fn const_pool_mut(&mut self) -> &mut ConstPool {
+        &mut self.const_pool
+    }
 
     pub fn add_interface(&mut self, interface: String) -> Result<(), ClassUpdateError> {
         let interface = self.const_pool.store_const_class_info(interface)?;
@@ -233,18 +241,30 @@ impl Class {
         Ok(())
     }
 
-    pub fn add_field(&mut self, access_flags: FieldAccessFlags, name: String, descriptor: FieldDescriptor)
-                     -> Result<ClassFieldIndex, ClassUpdateError> {
+    pub fn add_field(
+        &mut self,
+        access_flags: FieldAccessFlags,
+        name: String,
+        descriptor: FieldDescriptor,
+    ) -> Result<ClassFieldIndex, ClassUpdateError> {
         let name = self.const_pool.store_const_utf8_info(name)?;
         let descriptor = self.const_pool.store_type_descriptor(descriptor)?;
-        self.fields.push(FieldInfo::new(access_flags, name, descriptor)).map_err(|e| e.into())
+        self.fields
+            .push(FieldInfo::new(access_flags, name, descriptor))
+            .map_err(|e| e.into())
     }
 
-    pub fn add_method(&mut self, access_flags: MethodAccessFlags, name: String, descriptor: String)
-                      -> Result<ClassMethodIndex, ClassUpdateError> {
+    pub fn add_method(
+        &mut self,
+        access_flags: MethodAccessFlags,
+        name: String,
+        descriptor: String,
+    ) -> Result<ClassMethodIndex, ClassUpdateError> {
         let name = self.const_pool.store_const_utf8_info(name)?;
         let descriptor = self.const_pool.store_const_utf8_info(descriptor)?;
-        self.methods.push(MethodInfo::new(access_flags, name, descriptor)).map_err(|e| e.into())
+        self.methods
+            .push(MethodInfo::new(access_flags, name, descriptor))
+            .map_err(|e| e.into())
     }
 
     pub fn add_source_file_attribute(&mut self, filename: String) -> Result<(), ClassUpdateError> {
@@ -271,7 +291,11 @@ impl Class {
         Ok(())
     }
 
-    pub fn add_custom_attribute(&mut self, name: String, payload: JvmVecU4<u8>) -> Result<(), ClassUpdateError> {
+    pub fn add_custom_attribute(
+        &mut self,
+        name: String,
+        payload: JvmVecU4<u8>,
+    ) -> Result<(), ClassUpdateError> {
         let attribute = NamedAttribute::new_custom_attribute(&mut self.const_pool, name, payload)?;
         self.add_attribute(attribute)?;
         Ok(())
@@ -279,43 +303,74 @@ impl Class {
 
     // Field updaters
 
-    pub fn field_add_const_value_attribute(&mut self, field_index: ClassFieldIndex, value: ConstValue)
-                                           -> Result<(), ClassUpdateError> {
-        let field = self.fields.get_mut(field_index).ok_or(ClassUpdateError::InvalidFieldIndex)?;
+    pub fn field_add_const_value_attribute(
+        &mut self,
+        field_index: ClassFieldIndex,
+        value: ConstValue,
+    ) -> Result<(), ClassUpdateError> {
+        let field = self
+            .fields
+            .get_mut(field_index)
+            .ok_or(ClassUpdateError::InvalidFieldIndex)?;
 
-        let attribute = NamedAttribute::new_const_value_attribute(
-            &mut self.const_pool, value,
-        )?;
+        let attribute = NamedAttribute::new_const_value_attribute(&mut self.const_pool, value)?;
         field.add_attribute(attribute);
         Ok(())
     }
 
-    pub fn field_add_synthetic_attribute(&mut self, field_index: ClassFieldIndex) -> Result<(), ClassUpdateError> {
-        let field = self.fields.get_mut(field_index).ok_or(ClassUpdateError::InvalidFieldIndex)?;
+    pub fn field_add_synthetic_attribute(
+        &mut self,
+        field_index: ClassFieldIndex,
+    ) -> Result<(), ClassUpdateError> {
+        let field = self
+            .fields
+            .get_mut(field_index)
+            .ok_or(ClassUpdateError::InvalidFieldIndex)?;
 
         let attribute = NamedAttribute::new_synthetic_attribute(&mut self.const_pool)?;
         field.add_attribute(attribute)?;
         Ok(())
     }
 
-    pub fn field_add_deprecated_attribute(&mut self, field_index: ClassFieldIndex) -> Result<(), ClassUpdateError> {
-        let field = self.fields.get_mut(field_index).ok_or(ClassUpdateError::InvalidFieldIndex)?;
+    pub fn field_add_deprecated_attribute(
+        &mut self,
+        field_index: ClassFieldIndex,
+    ) -> Result<(), ClassUpdateError> {
+        let field = self
+            .fields
+            .get_mut(field_index)
+            .ok_or(ClassUpdateError::InvalidFieldIndex)?;
 
         let attribute = NamedAttribute::new_deprecated_attribute(&mut self.const_pool)?;
         field.add_attribute(attribute)?;
         Ok(())
     }
 
-    pub fn field_add_signature_attribute(&mut self, field_index: ClassFieldIndex, signature: String) -> Result<(), ClassUpdateError> {
-        let field = self.fields.get_mut(field_index).ok_or(ClassUpdateError::InvalidFieldIndex)?;
+    pub fn field_add_signature_attribute(
+        &mut self,
+        field_index: ClassFieldIndex,
+        signature: String,
+    ) -> Result<(), ClassUpdateError> {
+        let field = self
+            .fields
+            .get_mut(field_index)
+            .ok_or(ClassUpdateError::InvalidFieldIndex)?;
 
         let attribute = NamedAttribute::new_signature_attribute(&mut self.const_pool, signature)?;
         field.add_attribute(attribute)?;
         Ok(())
     }
 
-    pub fn field_add_custom_attribute(&mut self, field_index: ClassFieldIndex, name: String, payload: JvmVecU4<u8>) -> Result<(), ClassUpdateError> {
-        let field = self.fields.get_mut(field_index).ok_or(ClassUpdateError::InvalidFieldIndex)?;
+    pub fn field_add_custom_attribute(
+        &mut self,
+        field_index: ClassFieldIndex,
+        name: String,
+        payload: JvmVecU4<u8>,
+    ) -> Result<(), ClassUpdateError> {
+        let field = self
+            .fields
+            .get_mut(field_index)
+            .ok_or(ClassUpdateError::InvalidFieldIndex)?;
 
         let attribute = NamedAttribute::new_custom_attribute(&mut self.const_pool, name, payload)?;
         field.add_attribute(attribute)?;
@@ -324,38 +379,75 @@ impl Class {
 
     // Method updaters
 
-    pub fn method_add_synthetic_attribute(&mut self, method_index: ClassMethodIndex) -> Result<(), ClassUpdateError> {
-        let method = self.methods.get_mut(method_index).ok_or(ClassUpdateError::InvalidMethodIndex)?;
+    pub fn method_add_synthetic_attribute(
+        &mut self,
+        method_index: ClassMethodIndex,
+    ) -> Result<(), ClassUpdateError> {
+        let method = self
+            .methods
+            .get_mut(method_index)
+            .ok_or(ClassUpdateError::InvalidMethodIndex)?;
 
         let attribute = NamedAttribute::new_synthetic_attribute(&mut self.const_pool)?;
         method.add_attribute(attribute)?;
         Ok(())
     }
 
-    pub fn method_add_deprecated_attribute(&mut self, method_index: ClassMethodIndex) -> Result<(), ClassUpdateError> {
-        let method = self.methods.get_mut(method_index).ok_or(ClassUpdateError::InvalidMethodIndex)?;
+    pub fn method_add_deprecated_attribute(
+        &mut self,
+        method_index: ClassMethodIndex,
+    ) -> Result<(), ClassUpdateError> {
+        let method = self
+            .methods
+            .get_mut(method_index)
+            .ok_or(ClassUpdateError::InvalidMethodIndex)?;
 
         let attribute = NamedAttribute::new_deprecated_attribute(&mut self.const_pool)?;
         method.add_attribute(attribute)?;
         Ok(())
     }
 
-    pub fn method_add_signature_attribute(&mut self, method_index: ClassMethodIndex, signature: String) -> Result<(), ClassUpdateError> {
-        let method = self.methods.get_mut(method_index).ok_or(ClassUpdateError::InvalidMethodIndex)?;
+    pub fn method_add_signature_attribute(
+        &mut self,
+        method_index: ClassMethodIndex,
+        signature: String,
+    ) -> Result<(), ClassUpdateError> {
+        let method = self
+            .methods
+            .get_mut(method_index)
+            .ok_or(ClassUpdateError::InvalidMethodIndex)?;
 
-        method.add_attribute(NamedAttribute::new_signature_attribute(&mut self.const_pool, signature)?)?;
+        method.add_attribute(NamedAttribute::new_signature_attribute(
+            &mut self.const_pool,
+            signature,
+        )?)?;
         Ok(())
     }
 
-    pub fn method_add_code_attribute(&mut self, method_index: ClassMethodIndex, bytecode: Bytecode) -> Result<(), ClassUpdateError> {
-        let method = self.methods.get_mut(method_index).ok_or(ClassUpdateError::InvalidMethodIndex)?;
+    pub fn method_add_code_attribute(
+        &mut self,
+        method_index: ClassMethodIndex,
+        bytecode: Bytecode,
+    ) -> Result<(), ClassUpdateError> {
+        let method = self
+            .methods
+            .get_mut(method_index)
+            .ok_or(ClassUpdateError::InvalidMethodIndex)?;
 
         method.add_attribute(bytecode.try_into_named_attribute(&mut self.const_pool)?)?;
         Ok(())
     }
 
-    pub fn method_add_custom_attribute(&mut self, method_index: ClassMethodIndex, name: String, payload: JvmVecU4<u8>) -> Result<(), ClassUpdateError> {
-        let method = self.methods.get_mut(method_index).ok_or(ClassUpdateError::InvalidMethodIndex)?;
+    pub fn method_add_custom_attribute(
+        &mut self,
+        method_index: ClassMethodIndex,
+        name: String,
+        payload: JvmVecU4<u8>,
+    ) -> Result<(), ClassUpdateError> {
+        let method = self
+            .methods
+            .get_mut(method_index)
+            .ok_or(ClassUpdateError::InvalidMethodIndex)?;
 
         let attribute = NamedAttribute::new_custom_attribute(&mut self.const_pool, name, payload)?;
         method.add_attribute(attribute)?;

@@ -2,10 +2,10 @@
 
 use crate::classfile_writable_mask_flags;
 
-use crate::attribute::{NamedAttribute, Attributable, AttributeAddError};
+use crate::attribute::{Attributable, AttributeAddError, NamedAttribute};
+use crate::classfile_writable;
 use crate::constpool::{ConstPoolIndex, ConstUtf8Info};
 use crate::vec::JvmVecU2;
-use crate::classfile_writable;
 
 classfile_writable! {
     #[doc = "Method structure as specified by \
@@ -20,9 +20,17 @@ classfile_writable! {
 }
 
 impl MethodInfo {
-    pub fn new(access_flags: MethodAccessFlags, name: ConstPoolIndex<ConstUtf8Info>,
-               descriptor: ConstPoolIndex<ConstUtf8Info>) -> Self {
-        Self { access_flags, name, descriptor, attributes: JvmVecU2::new() }
+    pub fn new(
+        access_flags: MethodAccessFlags,
+        name: ConstPoolIndex<ConstUtf8Info>,
+        descriptor: ConstPoolIndex<ConstUtf8Info>,
+    ) -> Self {
+        Self {
+            access_flags,
+            name,
+            descriptor,
+            attributes: JvmVecU2::new(),
+        }
     }
 }
 

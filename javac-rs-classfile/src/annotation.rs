@@ -5,8 +5,8 @@ use crate::constpool::{
     ConstUtf8Info, RawConstPoolIndex,
 };
 use crate::vec::{JvmVecU1, JvmVecU2};
-use std::io::Write;
 use crate::writer::ClassfileWritable;
+use std::io::Write;
 
 classfile_writable! {
     #[derive(Eq, PartialEq, Debug)]

@@ -2,18 +2,21 @@
 
 use crate::annotation::{Annotation, ElementValue, TypeAnnotation};
 use crate::class::ClassAccessFlags;
-use crate::{classfile_writable, JvmVecCreateError};
-use crate::constpool::{ConstClassInfo, ConstNameAndTypeInfo, ConstPackageInfo, ConstPoolIndex, ConstUtf8Info, LoadableConstPoolEntryInfo, ConstPool, ConstValueInfo, ConstValue, ConstPoolStoreError};
+use crate::constpool::{
+    ConstClassInfo, ConstNameAndTypeInfo, ConstPackageInfo, ConstPool, ConstPoolIndex,
+    ConstPoolStoreError, ConstUtf8Info, ConstValue, ConstValueInfo, LoadableConstPoolEntryInfo,
+};
 use crate::frame::StackMapFrame;
 use crate::method::MethodAccessFlags;
 use crate::module::{
     ModuleExports, ModuleFlags, ModuleOpens, ModuleProvides, ModuleRequires, ModuleUses,
 };
-use crate::vec::{JvmVecU1, JvmVecU2, JvmVecU4, JvmVecStoreError};
-use std::io::Write;
+use crate::vec::{JvmVecStoreError, JvmVecU1, JvmVecU2, JvmVecU4};
 use crate::writer::ClassfileWritable;
-use thiserror::Error;
+use crate::{classfile_writable, JvmVecCreateError};
 use std::convert::TryFrom;
+use std::io::Write;
+use thiserror::Error;
 
 /// An error which may occur while creating a new attribute.
 #[derive(Error, Debug)]
@@ -49,44 +52,61 @@ impl NamedAttribute {
 
     // Factories for creation of attributes
 
-    pub fn new_const_value_attribute(const_pool: &mut ConstPool, value: ConstValue)
-                                     -> Result<NamedAttribute, AttributeCreateError> {
+    pub fn new_const_value_attribute(
+        const_pool: &mut ConstPool,
+        value: ConstValue,
+    ) -> Result<NamedAttribute, AttributeCreateError> {
         let name = const_pool.store_const_utf8_info(String::from("ConstantValue"))?;
         let value = const_pool.store_const_value_info(value)?;
 
-        Ok(NamedAttribute { name, info: AttributeInfo::ConstantValue(ConstantValueAttribute { value }) })
+        Ok(NamedAttribute {
+            name,
+            info: AttributeInfo::ConstantValue(ConstantValueAttribute { value }),
+        })
     }
 
-    pub fn new_source_file_attribute(const_pool: &mut ConstPool, filename: String)
-                                     -> Result<NamedAttribute, AttributeCreateError> {
+    pub fn new_source_file_attribute(
+        const_pool: &mut ConstPool,
+        filename: String,
+    ) -> Result<NamedAttribute, AttributeCreateError> {
         let name = const_pool.store_const_utf8_info(String::from("SourceFile"))?;
         let filename = const_pool.store_const_utf8_info(filename)?;
 
-        Ok(NamedAttribute { name, info: AttributeInfo::SourceFile(SourceFileAttribute { filename }) })
+        Ok(NamedAttribute {
+            name,
+            info: AttributeInfo::SourceFile(SourceFileAttribute { filename }),
+        })
     }
 
-    pub fn new_synthetic_attribute(const_pool: &mut ConstPool)
-                                   -> Result<NamedAttribute, AttributeCreateError> {
+    pub fn new_synthetic_attribute(
+        const_pool: &mut ConstPool,
+    ) -> Result<NamedAttribute, AttributeCreateError> {
         Ok(NamedAttribute {
             name: const_pool.store_const_utf8_info(String::from("Synthetic"))?,
             info: AttributeInfo::Synthetic(SyntheticAttribute),
         })
     }
 
-    pub fn new_deprecated_attribute(const_pool: &mut ConstPool)
-                                    -> Result<NamedAttribute, AttributeCreateError> {
+    pub fn new_deprecated_attribute(
+        const_pool: &mut ConstPool,
+    ) -> Result<NamedAttribute, AttributeCreateError> {
         Ok(NamedAttribute {
             name: const_pool.store_const_utf8_info(String::from("Deprecated"))?,
             info: AttributeInfo::Deprecated(DeprecatedAttribute),
         })
     }
 
-    pub fn new_signature_attribute(const_pool: &mut ConstPool, signature: String)
-                                   -> Result<NamedAttribute, AttributeCreateError> {
+    pub fn new_signature_attribute(
+        const_pool: &mut ConstPool,
+        signature: String,
+    ) -> Result<NamedAttribute, AttributeCreateError> {
         let name = const_pool.store_const_utf8_info(String::from("Signature"))?;
         let signature = const_pool.store_const_utf8_info(signature)?;
 
-        Ok(NamedAttribute { name, info: AttributeInfo::Signature(SignatureAttribute { signature }) })
+        Ok(NamedAttribute {
+            name,
+            info: AttributeInfo::Signature(SignatureAttribute { signature }),
+        })
     }
 
     pub fn new_code_attribute(
@@ -100,16 +120,32 @@ impl NamedAttribute {
         let name = const_pool.store_const_utf8_info(String::from("Code"))?;
 
         let exception_tables = JvmVecU2::try_from(
-            exception_tables.into_iter()
+            exception_tables
+                .into_iter()
                 .map(|table| table.into_attribute_analog(const_pool).unwrap())
-                .collect::<Vec<ExceptionTableInfo>>()
+                .collect::<Vec<ExceptionTableInfo>>(),
         )?;
-        Ok(NamedAttribute { name, info: AttributeInfo::Code(CodeAttribute { max_stack, max_locals, code, exception_tables, attributes }) })
+        Ok(NamedAttribute {
+            name,
+            info: AttributeInfo::Code(CodeAttribute {
+                max_stack,
+                max_locals,
+                code,
+                exception_tables,
+                attributes,
+            }),
+        })
     }
 
-    pub fn new_custom_attribute(const_pool: &mut ConstPool, name: String, payload: JvmVecU4<u8>)
-                                -> Result<NamedAttribute, AttributeCreateError> {
-        Ok(NamedAttribute { name: const_pool.store_const_utf8_info(name)?, info: AttributeInfo::Custom(CustomAttribute { payload }) })
+    pub fn new_custom_attribute(
+        const_pool: &mut ConstPool,
+        name: String,
+        payload: JvmVecU4<u8>,
+    ) -> Result<NamedAttribute, AttributeCreateError> {
+        Ok(NamedAttribute {
+            name: const_pool.store_const_utf8_info(name)?,
+            info: AttributeInfo::Custom(CustomAttribute { payload }),
+        })
     }
 }
 
@@ -120,12 +156,20 @@ pub trait TryIntoNamedAttribute {
     /// # Arguments
     ///
     /// * `const_pool` - const pool which will be used for creation
-    fn try_into_named_attribute(self, const_pool: &mut ConstPool) -> Result<NamedAttribute, AttributeCreateError>;
+    fn try_into_named_attribute(
+        self,
+        const_pool: &mut ConstPool,
+    ) -> Result<NamedAttribute, AttributeCreateError>;
 }
 
 impl TryIntoNamedAttribute for NamedAttribute {
     #[inline(always)] // ~no-op
-    fn try_into_named_attribute(self, _: &mut ConstPool) -> Result<NamedAttribute, AttributeCreateError> { Ok(self) }
+    fn try_into_named_attribute(
+        self,
+        _: &mut ConstPool,
+    ) -> Result<NamedAttribute, AttributeCreateError> {
+        Ok(self)
+    }
 }
 
 /// A class member which may have attributes.
@@ -192,8 +236,12 @@ impl ClassfileWritable for AttributeInfo {
                 Self::Deprecated(v) => v.write_to_classfile(&mut tmp_buffer),
                 Self::RuntimeVisibleAnnotations(v) => v.write_to_classfile(&mut tmp_buffer),
                 Self::RuntimeInvisibleAnnotations(v) => v.write_to_classfile(&mut tmp_buffer),
-                Self::RuntimeVisibleParameterAnnotations(v) => v.write_to_classfile(&mut tmp_buffer),
-                Self::RuntimeInvisibleParameterAnnotations(v) => v.write_to_classfile(&mut tmp_buffer),
+                Self::RuntimeVisibleParameterAnnotations(v) => {
+                    v.write_to_classfile(&mut tmp_buffer)
+                }
+                Self::RuntimeInvisibleParameterAnnotations(v) => {
+                    v.write_to_classfile(&mut tmp_buffer)
+                }
                 Self::RuntimeVisibleTypeAnnotations(v) => v.write_to_classfile(&mut tmp_buffer),
                 Self::RuntimeInvisibleTypeAnnotations(v) => v.write_to_classfile(&mut tmp_buffer),
                 Self::AnnotationDefault(v) => v.write_to_classfile(&mut tmp_buffer),
@@ -207,7 +255,9 @@ impl ClassfileWritable for AttributeInfo {
                 Self::Custom(..) => unsafe { ::std::hint::unreachable_unchecked() },
             };
             // TODO get rid of unwrapping by using result for return type
-            JvmVecU4::try_from(tmp_buffer).unwrap().write_to_classfile(buffer);
+            JvmVecU4::try_from(tmp_buffer)
+                .unwrap()
+                .write_to_classfile(buffer);
         }
     }
 }
@@ -246,8 +296,13 @@ classfile_writable! {
 }
 
 impl ExceptionTableInfo {
-    pub fn new(const_pool: &mut ConstPool, start_pc: u16, end_pc: u16, handler_prc: u16, catch_type_name: String)
-               -> Result<Self, AttributeCreateError> {
+    pub fn new(
+        const_pool: &mut ConstPool,
+        start_pc: u16,
+        end_pc: u16,
+        handler_prc: u16,
+        catch_type_name: String,
+    ) -> Result<Self, AttributeCreateError> {
         Ok(Self {
             start_pc,
             end_pc,

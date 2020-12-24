@@ -17,19 +17,33 @@ pub enum TypeDescriptor {
 
 impl TypeDescriptor {
     fn array_of(mut component: TypeDescriptor, size: usize) -> Self {
-        for _ in 0..size { component = Self::Array(Box::new(component)) }
+        for _ in 0..size {
+            component = Self::Array(Box::new(component))
+        }
         component
     }
 
     fn is_primitive(&self) -> bool {
-        matches!(self, Self::Byte | Self::Char | Self::Double | Self::Float | Self::Int | Self::Long | Self::Short | Self::Boolean)
+        matches!(
+            self,
+            Self::Byte
+                | Self::Char
+                | Self::Double
+                | Self::Float
+                | Self::Int
+                | Self::Long
+                | Self::Short
+                | Self::Boolean
+        )
     }
 
     fn is_reference(&self) -> bool {
         matches!(self, Self::Class(..) | Self::Array(..))
     }
 
-    fn is_array(&self) -> bool { matches!(self, Self::Array(..)) }
+    fn is_array(&self) -> bool {
+        matches!(self, Self::Array(..))
+    }
 }
 
 impl ToString for TypeDescriptor {
@@ -70,36 +84,132 @@ mod tests {
 
     #[test]
     fn class_descriptors() {
-        assert_eq!(TypeDescriptor::Class("ru/javacrs/TestClass".to_string()).to_string(), "Lru/javacrs/TestClass;");
-        assert_eq!(TypeDescriptor::Class("TestClassWithNoPackage".to_string()).to_string(), "LTestClassWithNoPackage;");
-        assert_eq!(TypeDescriptor::Class("class.with.Dots".to_string()).to_string(), "Lclass.with.Dots;");
-        assert_eq!(TypeDescriptor::Class("int".to_string()).to_string(), "Lint;");
+        assert_eq!(
+            TypeDescriptor::Class("ru/javacrs/TestClass".to_string()).to_string(),
+            "Lru/javacrs/TestClass;"
+        );
+        assert_eq!(
+            TypeDescriptor::Class("TestClassWithNoPackage".to_string()).to_string(),
+            "LTestClassWithNoPackage;"
+        );
+        assert_eq!(
+            TypeDescriptor::Class("class.with.Dots".to_string()).to_string(),
+            "Lclass.with.Dots;"
+        );
+        assert_eq!(
+            TypeDescriptor::Class("int".to_string()).to_string(),
+            "Lint;"
+        );
     }
 
     #[test]
     fn array_1_descriptors() {
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Byte)).to_string(), "[B");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Char)).to_string(), "[C");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Double)).to_string(), "[D");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Float)).to_string(), "[F");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Int)).to_string(), "[I");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Long)).to_string(), "[J");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Short)).to_string(), "[S");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Boolean)).to_string(), "[Z");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Class("some/test/ClassName".to_string()))).to_string(), "[Lsome/test/ClassName;");
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Byte)).to_string(),
+            "[B"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Char)).to_string(),
+            "[C"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Double)).to_string(),
+            "[D"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Float)).to_string(),
+            "[F"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Int)).to_string(),
+            "[I"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Long)).to_string(),
+            "[J"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Short)).to_string(),
+            "[S"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Boolean)).to_string(),
+            "[Z"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Class(
+                "some/test/ClassName".to_string()
+            )))
+            .to_string(),
+            "[Lsome/test/ClassName;"
+        );
     }
 
     #[test]
     fn array_2_descriptors() {
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Byte)))).to_string(), "[[B");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Char)))).to_string(), "[[C");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Double)))).to_string(), "[[D");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Float)))).to_string(), "[[F");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Int)))).to_string(), "[[I");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Long)))).to_string(), "[[J");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Short)))).to_string(), "[[S");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Boolean)))).to_string(), "[[Z");
-        assert_eq!(TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Class("other/test/ClassName".to_string()))))).to_string(), "[[Lother/test/ClassName;");
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Byte
+            ))))
+            .to_string(),
+            "[[B"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Char
+            ))))
+            .to_string(),
+            "[[C"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Double
+            ))))
+            .to_string(),
+            "[[D"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Float
+            ))))
+            .to_string(),
+            "[[F"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Int
+            ))))
+            .to_string(),
+            "[[I"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Long
+            ))))
+            .to_string(),
+            "[[J"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Short
+            ))))
+            .to_string(),
+            "[[S"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Boolean
+            ))))
+            .to_string(),
+            "[[Z"
+        );
+        assert_eq!(
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Class("other/test/ClassName".to_string())
+            ))))
+            .to_string(),
+            "[[Lother/test/ClassName;"
+        );
     }
 
     #[test]
@@ -138,7 +248,9 @@ mod tests {
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Class("some/test/ClassName".to_string()), 1),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Class("some/test/ClassName".to_string()))),
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Class(
+                "some/test/ClassName".to_string()
+            ))),
         );
     }
 
@@ -146,39 +258,57 @@ mod tests {
     fn array_2_descriptor_factory() {
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Byte, 2),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Byte))))
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Byte
+            ))))
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Char, 2),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Char))))
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Char
+            ))))
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Double, 2),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Double))))
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Double
+            ))))
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Float, 2),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Float))))
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Float
+            ))))
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Int, 2),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Int))))
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Int
+            ))))
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Long, 2),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Long))))
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Long
+            ))))
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Short, 2),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Short))))
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Short
+            ))))
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Boolean, 2),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Boolean))))
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Boolean
+            ))))
         );
         assert_eq!(
             TypeDescriptor::array_of(TypeDescriptor::Class("some/test/ClassName".to_string()), 2),
-            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(TypeDescriptor::Class("some/test/ClassName".to_string())))))
+            TypeDescriptor::Array(Box::new(TypeDescriptor::Array(Box::new(
+                TypeDescriptor::Class("some/test/ClassName".to_string())
+            ))))
         );
     }
 }

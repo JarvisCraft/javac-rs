@@ -1,6 +1,6 @@
 //! Structures related to fields of a class.
 
-use crate::attribute::{Attributable, NamedAttribute, AttributeAddError};
+use crate::attribute::{Attributable, AttributeAddError, NamedAttribute};
 use crate::classfile_writable;
 use crate::classfile_writable_mask_flags;
 use crate::constpool::{ConstPoolIndex, ConstUtf8Info};
@@ -19,9 +19,17 @@ classfile_writable! {
 }
 
 impl FieldInfo {
-    pub fn new(access_flags: FieldAccessFlags, name: ConstPoolIndex<ConstUtf8Info>,
-           descriptor: ConstPoolIndex<ConstUtf8Info>) -> Self {
-        Self { access_flags, name, descriptor, attributes: JvmVecU2::new() }
+    pub fn new(
+        access_flags: FieldAccessFlags,
+        name: ConstPoolIndex<ConstUtf8Info>,
+        descriptor: ConstPoolIndex<ConstUtf8Info>,
+    ) -> Self {
+        Self {
+            access_flags,
+            name,
+            descriptor,
+            attributes: JvmVecU2::new(),
+        }
     }
 }
 
