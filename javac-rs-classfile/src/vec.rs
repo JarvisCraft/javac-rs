@@ -100,6 +100,23 @@ macro_rules! impl_size_limited_vec {
             }
         }
 
+        impl<T: ::std::clone::Clone> $name<T> {
+
+            pub fn extend_from_slice(&mut self, elements: &[T])
+                                     -> ::std::result::Result<$size_type, $crate::vec::JvmVecStoreError> {
+                let elements_length = elements.len();
+                if elements_length > Self::MAX_SIZE as usize {
+                    Err($crate::vec::JvmVecStoreError::OutOfBounds)
+                } else {
+                    let length = self.len() + (elements_length as $size_type) - 1;
+                    if length < Self::MAX_SIZE {
+                        self.0.extend_from_slice(elements);
+                        Ok(length)
+                    } else { Err($crate::vec::JvmVecStoreError::OutOfBounds) }
+                }
+            }
+        }
+
         impl<T> ::std::default::Default for $name<T> {
             fn default() -> Self { Self::new() }
         }

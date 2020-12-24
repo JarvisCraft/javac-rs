@@ -1,7 +1,7 @@
 //! Implementation of classfile-specific logic as specified by
 //! [#4](https://docs.oracle.com/javase/specs/jvms/se14/html/jvms-4.html).
 
-use crate::attribute::{Attributable, NamedAttribute, AttributeCreateError, AttributeAddError};
+use crate::attribute::{Attributable, NamedAttribute, AttributeCreateError, AttributeAddError, TryIntoNamedAttribute};
 use crate::constpool::{ConstClassInfo, ConstPool, ConstPoolIndex, ConstPoolStoreError, ConstValue};
 use crate::defs::CLASSFILE_HEADER;
 use crate::field::{FieldInfo, FieldAccessFlags};
@@ -10,6 +10,8 @@ use crate::vec::{JvmVecU2, JvmVecStoreError, JvmVecU4};
 use std::io::Write;
 use thiserror::Error;
 use crate::writer::ClassfileWritable;
+use crate::bytecode::Bytecode;
+use crate::FieldDescriptor;
 
 pub trait Tagged {
     type TagType;
@@ -221,16 +223,20 @@ impl Class {
         }
     }
 
+    pub fn const_pool(&self) -> &ConstPool { &self.const_pool }
+
+    pub fn const_pool_mut(&mut self) -> &mut ConstPool { &mut self.const_pool }
+
     pub fn add_interface(&mut self, interface: String) -> Result<(), ClassUpdateError> {
         let interface = self.const_pool.store_const_class_info(interface)?;
         self.interfaces.push(interface)?;
         Ok(())
     }
 
-    pub fn add_field(&mut self, access_flags: FieldAccessFlags, name: String, descriptor: String)
+    pub fn add_field(&mut self, access_flags: FieldAccessFlags, name: String, descriptor: FieldDescriptor)
                      -> Result<ClassFieldIndex, ClassUpdateError> {
         let name = self.const_pool.store_const_utf8_info(name)?;
-        let descriptor = self.const_pool.store_const_utf8_info(descriptor)?;
+        let descriptor = self.const_pool.store_type_descriptor(descriptor)?;
         self.fields.push(FieldInfo::new(access_flags, name, descriptor)).map_err(|e| e.into())
     }
 
@@ -337,8 +343,14 @@ impl Class {
     pub fn method_add_signature_attribute(&mut self, method_index: ClassMethodIndex, signature: String) -> Result<(), ClassUpdateError> {
         let method = self.methods.get_mut(method_index).ok_or(ClassUpdateError::InvalidMethodIndex)?;
 
-        let attribute = NamedAttribute::new_signature_attribute(&mut self.const_pool, signature)?;
-        method.add_attribute(attribute)?;
+        method.add_attribute(NamedAttribute::new_signature_attribute(&mut self.const_pool, signature)?)?;
+        Ok(())
+    }
+
+    pub fn method_add_code_attribute(&mut self, method_index: ClassMethodIndex, bytecode: Bytecode) -> Result<(), ClassUpdateError> {
+        let method = self.methods.get_mut(method_index).ok_or(ClassUpdateError::InvalidMethodIndex)?;
+
+        method.add_attribute(bytecode.try_into_named_attribute(&mut self.const_pool)?)?;
         Ok(())
     }
 

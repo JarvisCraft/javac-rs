@@ -2,7 +2,7 @@
 
 use crate::annotation::{Annotation, ElementValue, TypeAnnotation};
 use crate::class::ClassAccessFlags;
-use crate::classfile_writable;
+use crate::{classfile_writable, JvmVecCreateError};
 use crate::constpool::{ConstClassInfo, ConstNameAndTypeInfo, ConstPackageInfo, ConstPoolIndex, ConstUtf8Info, LoadableConstPoolEntryInfo, ConstPool, ConstValueInfo, ConstValue, ConstPoolStoreError};
 use crate::frame::StackMapFrame;
 use crate::method::MethodAccessFlags;
@@ -18,6 +18,8 @@ use std::convert::TryFrom;
 /// An error which may occur while creating a new attribute.
 #[derive(Error, Debug)]
 pub enum AttributeCreateError {
+    #[error("JVM vector cannot be created for the given attribute")]
+    OutOfSpace(#[from] JvmVecCreateError),
     #[error("Target const pool is out of space")]
     ConstPoolOutOfSpace(#[from] ConstPoolStoreError),
 }
@@ -87,10 +89,43 @@ impl NamedAttribute {
         Ok(NamedAttribute { name, info: AttributeInfo::Signature(SignatureAttribute { signature }) })
     }
 
+    pub fn new_code_attribute(
+        const_pool: &mut ConstPool,
+        max_stack: u16,
+        max_locals: u16,
+        code: JvmVecU4<u8>,
+        exception_tables: JvmVecU2<crate::bytecode::ExceptionTable>,
+        attributes: JvmVecU2<NamedAttribute>,
+    ) -> Result<NamedAttribute, AttributeCreateError> {
+        let name = const_pool.store_const_utf8_info(String::from("Code"))?;
+
+        let exception_tables = JvmVecU2::try_from(
+            exception_tables.into_iter()
+                .map(|table| table.into_attribute_analog(const_pool).unwrap())
+                .collect::<Vec<ExceptionTableInfo>>()
+        )?;
+        Ok(NamedAttribute { name, info: AttributeInfo::Code(CodeAttribute { max_stack, max_locals, code, exception_tables, attributes }) })
+    }
+
     pub fn new_custom_attribute(const_pool: &mut ConstPool, name: String, payload: JvmVecU4<u8>)
                                 -> Result<NamedAttribute, AttributeCreateError> {
         Ok(NamedAttribute { name: const_pool.store_const_utf8_info(name)?, info: AttributeInfo::Custom(CustomAttribute { payload }) })
     }
+}
+
+/// An object which can be converted into a [`NamedAttribute`].
+pub trait TryIntoNamedAttribute {
+    /// Converts this object into a [`NamedAttribute`].
+    ///
+    /// # Arguments
+    ///
+    /// * `const_pool` - const pool which will be used for creation
+    fn try_into_named_attribute(self, const_pool: &mut ConstPool) -> Result<NamedAttribute, AttributeCreateError>;
+}
+
+impl TryIntoNamedAttribute for NamedAttribute {
+    #[inline(always)] // ~no-op
+    fn try_into_named_attribute(self, _: &mut ConstPool) -> Result<NamedAttribute, AttributeCreateError> { Ok(self) }
 }
 
 /// A class member which may have attributes.
@@ -185,21 +220,40 @@ classfile_writable! {
 classfile_writable! {
     #[derive(Eq, PartialEq, Debug)]
     pub struct CodeAttribute {
-            max_stack: u16,
-            max_locals: u16,
-            code: JvmVecU4<u8>,
-            exception_tables: JvmVecU2<ExceptionTable>,
-            attributes: JvmVecU2<AttributeInfo>,
+        max_stack: u16,
+        max_locals: u16,
+        code: JvmVecU4<u8>,
+        exception_tables: JvmVecU2<ExceptionTableInfo>,
+        attributes: JvmVecU2<NamedAttribute>,
+    }
+}
+
+impl Attributable for CodeAttribute {
+    fn add_attribute(&mut self, attribute: NamedAttribute) -> Result<(), AttributeAddError> {
+        self.attributes.push(attribute)?;
+        Ok(())
     }
 }
 
 classfile_writable! {
     #[derive(Eq, PartialEq, Debug)]
-    pub struct ExceptionTable {
+    pub struct ExceptionTableInfo {
         start_pc: u16,
         end_pc: u16,
         handler_prc: u16,
         catch_type: ConstPoolIndex<ConstClassInfo>,
+    }
+}
+
+impl ExceptionTableInfo {
+    pub fn new(const_pool: &mut ConstPool, start_pc: u16, end_pc: u16, handler_prc: u16, catch_type_name: String)
+               -> Result<Self, AttributeCreateError> {
+        Ok(Self {
+            start_pc,
+            end_pc,
+            handler_prc,
+            catch_type: const_pool.store_const_class_info(catch_type_name)?,
+        })
     }
 }
 

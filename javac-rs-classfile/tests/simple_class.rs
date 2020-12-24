@@ -1,6 +1,8 @@
 use javac_rs_classfile::*;
 use std::fs::File;
 
+mod class_testing;
+
 #[test]
 fn class_file() {
     let class = Class::new(
@@ -10,7 +12,7 @@ fn class_file() {
         String::from("java/lang/Object"),
     );
 
-    let mut file = File::create("TestClass.class").unwrap();
+    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClass.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);
@@ -27,10 +29,7 @@ fn class_file_with_single_interface() {
     class.add_interface(String::from("java/io/Serializable"));
     let class = class;
 
-    let mut file = File::create("TestClassWithSingleInterface.class").unwrap();
-    println!("{:#?}", class);
-    class.write_to_classfile(&mut file);
-    println!("Written to file: {:#?}", file);
+    class_testing::dump_class(class, "ru/progrm_jarvis/javacrs/TestClassWithSingleInterface");
 }
 
 #[test]
@@ -45,7 +44,7 @@ fn class_file_with_multiple_interface() {
     class.add_interface(String::from("java/io/Serializable"));
     let class = class;
 
-    let mut file = File::create("TestClassWithMultipleInterfaces.class").unwrap();
+    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithMultipleInterfaces.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);

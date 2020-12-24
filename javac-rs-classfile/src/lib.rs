@@ -1,6 +1,7 @@
 mod annotation;
 mod attribute;
-pub mod class;
+mod bytecode;
+mod class;
 mod constpool;
 pub mod defs;
 mod field;
@@ -19,4 +20,5 @@ pub use method::*;
 pub use writer::*;
 pub use constpool::*;
 pub use vec::*;
+pub use bytecode::*;
 pub use descriptor::*;

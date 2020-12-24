@@ -15,7 +15,7 @@ fn class_file_with_source_file_attribute() {
     ).unwrap();
     let class = class;
 
-    let mut file = File::create("TestClassWithSourceFileAttribute.class").unwrap();
+    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithSourceFileAttribute.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);
@@ -32,7 +32,7 @@ fn class_file_with_synthetic_attribute() {
     class.add_synthetic_attribute().unwrap();
     let class = class;
 
-    let mut file = File::create("TestClassWithSyntheticAttribute.class").unwrap();
+    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithSyntheticAttribute.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);
@@ -49,7 +49,7 @@ fn class_file_with_deprecated_attribute() {
     class.add_deprecated_attribute().unwrap();
     let class = class;
 
-    let mut file = File::create("TestClassWithDeprecatedAttribute.class").unwrap();
+    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithDeprecatedAttribute.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);
@@ -68,7 +68,7 @@ fn class_file_with_signature_attribute() {
     ).unwrap();
     let class = class;
 
-    let mut file = File::create("TestClassWithSignatureAttribute.class").unwrap();
+    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithSignatureAttribute.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);
@@ -88,7 +88,7 @@ fn class_file_with_single_custom_attribute() {
     ).unwrap();
     let class = class;
 
-    let mut file = File::create("TestClassWithSingleCustomAttribute.class").unwrap();
+    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithSingleCustomAttribute.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);
@@ -112,7 +112,7 @@ fn class_file_with_multiple_custom_attributes() {
     ).unwrap();
     let class = class;
 
-    let mut file = File::create("TestClassWithMultipleCustomAttributes.class").unwrap();
+    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithMultipleCustomAttributes.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);

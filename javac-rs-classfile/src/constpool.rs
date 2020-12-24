@@ -1,7 +1,7 @@
 //! Constant pool structures as specified by
 //! [#4.4](https://docs.oracle.com/javase/specs/jvms/se14/html/jvms-4.html#jvms-4.4)
 
-use crate::classfile_writable;
+use crate::{classfile_writable, TypeDescriptor};
 
 use crate::class::Tagged;
 use crate::constpool::ConstPoolEntry::Empty;
@@ -28,6 +28,8 @@ pub enum ConstPoolStoreError {
 pub struct RawConstPoolIndex(u16);
 
 impl RawConstPoolIndex {
+    pub fn as_u16(&self) -> u16 { self.0 }
+
     fn as_typed<T: ConstPoolEntryInfo>(&self) -> ConstPoolIndex<T> {
         ConstPoolIndex(self.clone(), PhantomData)
     }
@@ -88,6 +90,11 @@ impl<T: ConstPoolEntryInfo> ConstPoolIndex<T> {
     /// Creates a [`RawConstPoolIndex`] from this one.
     fn as_raw(&self) -> RawConstPoolIndex {
         self.0
+    }
+
+    // TODO make it more beautiful from point of API usage or at least rename
+    pub fn as_bytes(&self) -> [u8; 2] {
+        self.to_be_bytes()
     }
 }
 
@@ -342,6 +349,13 @@ impl ConstPool {
         self.store_entry_info(ConstUtf8Info {
             bytes: value.into_bytes().try_into()?,
         })
+    }
+
+    pub fn store_type_descriptor(
+        &mut self,
+        value: TypeDescriptor,
+    ) -> Result<ConstPoolIndex<ConstUtf8Info>, ConstPoolStoreError> {
+        self.store_const_utf8_info(value.to_string())
     }
 
     pub fn store_const_method_type_info(

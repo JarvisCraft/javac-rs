@@ -1,4 +1,4 @@
-use javac_rs_classfile::{Class, ClassfileVersion, major_versions, ClassfileWritable, FieldAccessFlag, ClassAccessFlag, ConstValue, JvmVecU4};
+use javac_rs_classfile::{Class, ClassfileVersion, major_versions, ClassfileWritable, FieldAccessFlag, ClassAccessFlag, ConstValue, JvmVecU4, FieldDescriptor};
 use std::fs::File;
 use std::convert::TryFrom;
 
@@ -14,10 +14,10 @@ fn class_file_with_field_without_attributes() {
     class.add_field(
         FieldAccessFlag::Private | FieldAccessFlag::Static,
         String::from("val"),
-        String::from("I")
+        FieldDescriptor::Int,
     ).unwrap();
 
-    let mut file = File::create("TestClassWithFieldWithoutAttributes.class").unwrap();
+    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithFieldWithoutAttributes.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);
@@ -36,12 +36,12 @@ fn class_file_with_field_with_const_value_attribute() {
         let field = class.add_field(
             FieldAccessFlag::Public | FieldAccessFlag::Static,
             String::from("val"),
-            String::from("I")
+            FieldDescriptor::Int,
         ).unwrap();
         class.field_add_const_value_attribute(field, ConstValue::Integer(123));
     }
 
-    let mut file = File::create("TestClassWithConstValueAttribute.class").unwrap();
+    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithConstValueAttribute.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);
@@ -60,7 +60,7 @@ fn class_file_with_field_with_various_attributes() {
         let field = class.add_field(
             FieldAccessFlag::Public | FieldAccessFlag::Static,
             String::from("val"),
-            String::from("I")
+            FieldDescriptor::Int,
         ).unwrap();
         class.field_add_const_value_attribute(field, ConstValue::Integer(123));
         class.field_add_deprecated_attribute(field);
@@ -77,7 +77,7 @@ fn class_file_with_field_with_various_attributes() {
         ).unwrap();
     }
 
-    let mut file = File::create("TestClassWithVariousAttributes.class").unwrap();
+    let mut file = File::create("ru/progrm_jarvis/javacrs/TestClassWithVariousAttributes.class").unwrap();
     println!("{:#?}", class);
     class.write_to_classfile(&mut file);
     println!("Written to file: {:#?}", file);
