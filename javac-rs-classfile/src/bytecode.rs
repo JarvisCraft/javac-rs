@@ -11,6 +11,7 @@ use crate::{
 };
 use std::cmp::max;
 
+use std::fs::read_to_string;
 use std::num::NonZeroU8;
 use thiserror::Error;
 
@@ -55,13 +56,24 @@ pub enum BytecodeUpdateError {
     #[error("Bytecode is out of space")]
     OutOfSpace(#[from] JvmVecStoreError),
     #[error("Stack is corrupted")]
-    CorruptedStack,
+    CorruptedStack(StackCorruption),
     #[error("Index of the local variable is out of bounds")]
     LocalIndexOutOfBounds,
     #[error("Too much method parameters were passed to a method invocation instruction")]
     TooMuchMethodParameters,
+    #[error("Branch is too far from current position")]
+    BranchTooFar,
+    //#[error("Attempt to create a jump instruction referencing itself")] mey rarely be useful
+    //RecursiveJump,
     #[error("Given type cannot be used in the given context")]
     InvalidType,
+}
+
+/// An error which may occur while updating bytecode.
+#[derive(Debug)]
+pub enum StackCorruption {
+    UNDERFLOW,
+    OVERFLOW,
 }
 
 impl Bytecode {
@@ -91,24 +103,33 @@ impl Bytecode {
         match (dec, inc) {
             (0, 0) => {} // no need to verify stack as no changes happen
             (dec, 0) => {
-                self.stack = self
-                    .stack
-                    .checked_sub(dec)
-                    .ok_or(BytecodeUpdateError::CorruptedStack)?
+                self.stack =
+                    self.stack
+                        .checked_sub(dec)
+                        .ok_or(BytecodeUpdateError::CorruptedStack(
+                            StackCorruption::UNDERFLOW,
+                        ))?
             }
             (0, inc) => {
-                self.stack = self
-                    .stack
-                    .checked_add(inc)
-                    .ok_or(BytecodeUpdateError::CorruptedStack)?;
+                self.stack =
+                    self.stack
+                        .checked_add(inc)
+                        .ok_or(BytecodeUpdateError::CorruptedStack(
+                            StackCorruption::OVERFLOW,
+                        ))?;
                 self.max_stack = max(self.max_stack, self.stack);
             }
-            (inc, dec) => {
+            (dec, inc) => {
                 self.stack = self
                     .stack
                     .checked_sub(dec)
-                    .and_then(|stack| stack.checked_add(inc))
-                    .ok_or(BytecodeUpdateError::CorruptedStack)?;
+                    .ok_or(BytecodeUpdateError::CorruptedStack(
+                        StackCorruption::UNDERFLOW,
+                    ))?
+                    .checked_add(inc)
+                    .ok_or(BytecodeUpdateError::CorruptedStack(
+                        StackCorruption::OVERFLOW,
+                    ))?;
                 self.max_stack = max(self.max_stack, self.stack);
             }
         };
@@ -121,6 +142,30 @@ impl Bytecode {
 
     fn push_ops(&mut self, operands: &[u8]) -> Result<BytecodeOffset, BytecodeUpdateError> {
         Ok(self.code.extend_from_slice(operands)?)
+    }
+
+    fn push_instr_ops(
+        &mut self,
+        opcode: u8,
+        operands: &[u8],
+    ) -> Result<BytecodeOffset, BytecodeUpdateError> {
+        let offset = self.code.push(opcode)?;
+        self.push_ops(operands)?;
+
+        Ok(offset)
+    }
+
+    fn push_instr_ops_2(
+        &mut self,
+        opcode: u8,
+        operands_1: &[u8],
+        operands_2: &[u8],
+    ) -> Result<BytecodeOffset, BytecodeUpdateError> {
+        let offset = self.code.push(opcode)?;
+        self.push_ops(operands_1)?;
+        self.push_ops(operands_2)?;
+
+        Ok(offset)
     }
 
     const fn slot_size(fat: bool) -> u16 {
@@ -140,14 +185,8 @@ impl Bytecode {
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         match index {
             0..=3 => self.push_instr(specific_0_opcode + index as u8),
-            index if index < u8::MAX as u16 => self
-                .stack_update(0, 1)
-                .and(self.push_instr(generic_opcode))
-                .and(self.push_ops(&[index as u8])),
-            _ => self
-                .push_instr(0xc4)
-                .and(self.push_instr(generic_opcode))
-                .and(self.push_ops(&index.to_be_bytes())),
+            index if index < u8::MAX as u16 => self.push_instr_ops(generic_opcode, &[index as u8]),
+            _ => self.push_instr_ops_2(0xc4, &[generic_opcode], &index.to_be_bytes()),
         }
     }
 
@@ -175,6 +214,39 @@ impl Bytecode {
         self.check_local_index(index)
             .and(self.stack_update(Self::slot_size(fat), 0))
             .and(self.access_local(generic_opcode, specific_0_opcode, index))
+    }
+
+    /// Generates a specific jump instruction calculating the correct offset.
+    ///
+    /// # Arguments
+    ///
+    /// * opcode - opcode of the generated instruction
+    /// * branch - offset of the branch to which the jump should happen if the condition is met
+    pub fn instr_jump_to(
+        &mut self,
+        opcode: u8,
+        branch: BytecodeOffset,
+    ) -> Result<BytecodeOffset, BytecodeUpdateError> {
+        let offset = self.push_instr(opcode)?;
+        if offset > branch {
+            // jump backwards
+            let delta = offset - branch;
+            if delta >= i16::MAX as BytecodeOffset {
+                return Err(BytecodeUpdateError::BranchTooFar);
+            }
+            self.push_ops(&(-(delta as i16)).to_be_bytes())?;
+        } else if offset < branch {
+            // jump forward
+            let delta = branch - offset;
+            if delta >= i16::MAX as BytecodeOffset {
+                return Err(BytecodeUpdateError::BranchTooFar);
+            }
+            self.push_ops(&(delta as i16).to_be_bytes())?;
+        } else {
+            self.push_ops(&Self::ZERO_BYTE_ARRAY_2)?;
+        }
+
+        Ok(offset)
     }
 }
 
@@ -216,8 +288,7 @@ impl Bytecode {
         component_type: ConstPoolIndex<ConstClassInfo>,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(0, 1)
-            .and(self.push_instr(0x19))
-            .and(self.push_ops(&component_type.as_bytes()))
+            .and(self.push_instr_ops(0x19, &component_type.as_bytes()))
     }
 
     pub fn instr_areturn(&mut self) -> Result<BytecodeOffset, BytecodeUpdateError> {
@@ -245,8 +316,9 @@ impl Bytecode {
         self.stack_update(3, 0).and(self.push_instr(0x54))
     }
 
-    pub fn instr_bipush(&mut self) -> Result<BytecodeOffset, BytecodeUpdateError> {
-        self.stack_update(0, 1).and(self.push_instr(0x10))
+    pub fn instr_bipush(&mut self, byte: u8) -> Result<BytecodeOffset, BytecodeUpdateError> {
+        self.stack_update(0, 1)
+            .and(self.push_instr_ops(0x10, &[byte]))
     }
 
     pub fn instr_caload(&mut self) -> Result<BytecodeOffset, BytecodeUpdateError> {
@@ -262,8 +334,7 @@ impl Bytecode {
         target_type: ConstPoolIndex<ConstClassInfo>,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(3, 0)
-            .and(self.push_instr(0xc0))
-            .and(self.push_ops(&target_type.as_bytes()))
+            .and(self.push_instr_ops(0xc0, &target_type.as_bytes()))
     }
 
     pub fn instr_d2f(&mut self) -> Result<BytecodeOffset, BytecodeUpdateError> {
@@ -450,8 +521,7 @@ impl Bytecode {
         fat: bool,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(1, Self::slot_size(fat))
-            .and(self.push_instr(0xb4))
-            .and(self.push_ops(&field.as_bytes()))
+            .and(self.push_instr_ops(0xb4, &field.as_bytes()))
     }
 
     pub fn instr_getstatic(
@@ -460,8 +530,7 @@ impl Bytecode {
         fat: bool,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(0, Self::slot_size(fat))
-            .and(self.push_instr(0xb2))
-            .and(self.push_ops(&field.as_bytes()))
+            .and(self.push_instr_ops(0xb2, &field.to_be_bytes()))
     }
 
     pub fn instr_goto(
@@ -471,13 +540,11 @@ impl Bytecode {
         if offset <= u16::MAX as u32 {
             // goto
             self.stack_update(1, 1)
-                .and(self.push_instr(0xa7))
-                .and(self.push_ops(&(offset as u16).to_be_bytes()))
+                .and(self.push_instr_ops(0xa7, &(offset as u16).to_be_bytes()))
         } else {
             // goto_w
             self.stack_update(1, 1)
-                .and(self.push_instr(0xc8))
-                .and(self.push_ops(&offset.to_be_bytes()))
+                .and(self.push_instr_ops(0xc8, &offset.to_be_bytes()))
         }
     }
 
@@ -557,146 +624,130 @@ impl Bytecode {
 
     pub fn instr_if_acmpeq(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(2, 0)
-            .and(self.push_instr(0xa5))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0xa5, branch))
     }
 
     pub fn instr_if_acmpne(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(2, 0)
-            .and(self.push_instr(0xa6))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0xa6, branch))
     }
 
     pub fn instr_if_icmpeq(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(2, 0)
-            .and(self.push_instr(0x9f))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0x9f, branch))
     }
 
     pub fn instr_if_icmpne(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(2, 0)
-            .and(self.push_instr(0xa0))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0xa0, branch))
     }
 
     pub fn instr_if_icmplt(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(2, 0)
-            .and(self.push_instr(0xa1))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0xa1, branch))
     }
 
     pub fn instr_if_icmpge(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(2, 0)
-            .and(self.push_instr(0xa2))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0xa2, branch))
     }
 
     pub fn instr_if_icmpgt(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(2, 0)
-            .and(self.push_instr(0xa3))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0xa3, branch))
     }
 
     pub fn instr_if_icmple(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(2, 0)
-            .and(self.push_instr(0xa4))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0xa4, branch))
     }
 
     pub fn instr_ifeq(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(1, 0)
-            .and(self.push_instr(0x99))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0x99, branch))
     }
 
     pub fn instr_ifne(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(1, 0)
-            .and(self.push_instr(0x9a))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0x9a, branch))
     }
 
     pub fn instr_iflt(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(1, 0)
-            .and(self.push_instr(0x9b))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0x9b, branch))
     }
 
     pub fn instr_ifge(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(1, 0)
-            .and(self.push_instr(0x9c))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0x9c, branch))
     }
 
     pub fn instr_ifgt(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(1, 0)
-            .and(self.push_instr(0x9d))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0x9d, branch))
     }
 
     pub fn instr_ifle(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(1, 0)
-            .and(self.push_instr(0x9e))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0x9e, branch))
     }
 
     pub fn instr_ifnonnull(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(1, 0)
-            .and(self.push_instr(0xc7))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0xc7, branch))
     }
 
     pub fn instr_ifnull(
         &mut self,
-        branch: u16, /* not sure why wide is not used here */
+        branch: BytecodeOffset,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(1, 0)
-            .and(self.push_instr(0xc6))
-            .and(self.push_ops(&branch.to_be_bytes()))
+            .and(self.instr_jump_to(0xc6, branch))
     }
 
     pub fn instr_iinc(
@@ -708,13 +759,10 @@ impl Bytecode {
             && delta <= i8::MAX as i16
             && local_variable_index <= u8::MAX as u16
         {
-            self.push_instr(0x84)
-                .and(self.push_ops(&[local_variable_index as u8, delta as u8]))
+            self.push_instr_ops(0x84, &[local_variable_index as u8, delta as u8])
         } else {
             self.push_instr(0xc4)
-                .and(self.push_instr(0x84))
-                .and(self.push_ops(&local_variable_index.to_be_bytes()))
-                .and(self.push_ops(&delta.to_be_bytes()))
+                .and(self.push_instr_ops(0x84, &local_variable_index.to_be_bytes()))
         }
     }
 
@@ -735,8 +783,7 @@ impl Bytecode {
         checked_type: ConstPoolIndex<ConstClassInfo>,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(1, 1)
-            .and(self.push_instr(0xc1))
-            .and(self.push_ops(&checked_type.to_be_bytes()))
+            .and(self.push_instr_ops(0xc1, &checked_type.to_be_bytes()))
     }
 
     pub fn instr_invokedynamic(
@@ -745,9 +792,11 @@ impl Bytecode {
         arguments_count: u8,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(arguments_count as u16, 0)
-            .and(self.push_instr(0xba))
-            .and(self.push_ops(&bootstrap_method.to_be_bytes()))
-            .and(self.push_ops(&Self::ZERO_BYTE_ARRAY_2))
+            .and(self.push_instr_ops_2(
+                0xba,
+                &bootstrap_method.to_be_bytes(),
+                &Self::ZERO_BYTE_ARRAY_2,
+            ))
     }
 
     pub fn instr_invokeinterface(
@@ -759,9 +808,7 @@ impl Bytecode {
             .checked_add(1)
             .ok_or(BytecodeUpdateError::TooMuchMethodParameters)?;
         self.stack_update(arguments_count as u16, 0)
-            .and(self.push_instr(0xb9))
-            .and(self.push_ops(&method.to_be_bytes()))
-            .and(self.push_ops(&[arguments_count, 0]))
+            .and(self.push_instr_ops_2(0xb9, &method.to_be_bytes(), &[arguments_count, 0]))
     }
 
     // TODO AnyMethodRefInfo or similar to this and similar methods
@@ -776,8 +823,7 @@ impl Bytecode {
                 .ok_or(BytecodeUpdateError::TooMuchMethodParameters)? as u16,
             0,
         )
-        .and(self.push_instr(0xb7))
-        .and(self.push_ops(&method.to_be_bytes()))
+        .and(self.push_instr_ops(0xb7, &method.to_be_bytes()))
     }
 
     pub fn instr_invokestatic(
@@ -786,8 +832,7 @@ impl Bytecode {
         arguments_count: u8,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(arguments_count as u16, 0)
-            .and(self.push_instr(0xb8))
-            .and(self.push_ops(&method.to_be_bytes()))
+            .and(self.push_instr_ops(0xb8, &method.to_be_bytes()))
     }
 
     pub fn instr_invokevirtual(
@@ -795,14 +840,11 @@ impl Bytecode {
         method: ConstPoolIndex<ConstMethodRefInfo>,
         arguments_count: u8,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
-        println!("1) self = {:?}", self);
         let arguments_count = arguments_count
             .checked_add(1)
             .ok_or(BytecodeUpdateError::TooMuchMethodParameters)?;
-        println!("2) self = {:?}", self);
         self.stack_update(arguments_count as u16, 0)
-            .and(self.push_instr(0xb6))
-            .and(self.push_ops(&method.to_be_bytes()))
+            .and(self.push_instr_ops(0xb6, &method.to_be_bytes()))
     }
 
     pub fn instr_ior(&mut self) -> Result<BytecodeOffset, BytecodeUpdateError> {
@@ -844,13 +886,11 @@ impl Bytecode {
         if offset <= u16::MAX as u32 {
             // jsr
             self.stack_update(1, 1)
-                .and(self.push_instr(0xa8))
-                .and(self.push_ops(&(offset as u16).to_be_bytes()))
+                .and(self.push_instr_ops(0xa8, &(offset as u16).to_be_bytes()))
         } else {
             // jsr_w
             self.stack_update(1, 1)
-                .and(self.push_instr(0xc9))
-                .and(self.push_ops(&offset.to_be_bytes()))
+                .and(self.push_instr_ops(0xc9, &offset.to_be_bytes()))
         }
     }
 
@@ -901,11 +941,9 @@ impl Bytecode {
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(0, 1)
             .and(if value.as_u16() <= u8::MAX as u16 {
-                self.push_instr(0x12) // ldc
-                    .and(self.push_ops(&(value.as_u16() as u8).to_le_bytes()))
+                self.push_instr_ops(0x12, &(value.as_u16() as u8).to_le_bytes())
             } else {
-                self.push_instr(0x13) // ldc_w
-                    .and(self.push_ops(&value.to_le_bytes()))
+                self.push_instr_ops(0x13, &value.to_le_bytes())
             })
     }
 
@@ -914,8 +952,7 @@ impl Bytecode {
         value: ConstPoolIndex<E>,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(0, 2)
-            .and(self.push_instr(0x14))
-            .and(self.push_ops(&value.to_le_bytes()))
+            .and(self.push_instr_ops(0x14, &value.to_le_bytes()))
     }
 
     pub fn instr_ldiv(&mut self) -> Result<BytecodeOffset, BytecodeUpdateError> {
@@ -986,10 +1023,11 @@ impl Bytecode {
         dimensions: NonZeroU8,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         let dimensions = dimensions.get();
-        self.stack_update(dimensions as u16, 1)
-            .and(self.push_instr(0x19))
-            .and(self.push_ops(&component_type.as_bytes()))
-            .and(self.push_ops(&[dimensions]))
+        self.stack_update(dimensions as u16, 1).and(self.push_instr_ops_2(
+            0x19,
+            &component_type.to_be_bytes(),
+            &[dimensions],
+        ))
     }
 
     pub fn instr_new(
@@ -997,8 +1035,7 @@ impl Bytecode {
         component_type: ConstPoolIndex<ConstClassInfo>,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(0, 1)
-            .and(self.push_instr(0xbb))
-            .and(self.push_ops(&component_type.as_bytes()))
+            .and(self.push_instr_ops(0xbb, &component_type.as_bytes()))
     }
 
     pub fn instr_newarray(
@@ -1019,8 +1056,7 @@ impl Bytecode {
             }
         };
         self.stack_update(0, 1)
-            .and(self.push_instr(0xbc))
-            .and(self.push_ops(&[component_type]))
+            .and(self.push_instr_ops(0xbc,&[component_type]))
     }
 
     pub fn instr_nop(&mut self) -> Result<BytecodeOffset, BytecodeUpdateError> {
@@ -1040,9 +1076,9 @@ impl Bytecode {
         field: ConstPoolIndex<ConstFieldRefInfo>,
         fat: bool,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
-        self.stack_update(1 + Self::slot_size(fat), 0)
-            .and(self.push_instr(0xb5))
-            .and(self.push_ops(&field.as_bytes()))
+        self
+            .stack_update(1 + Self::slot_size(fat), 0)
+            .and(self.push_instr_ops(0xb5, &field.as_bytes()))
     }
 
     pub fn instr_putstatic(
@@ -1050,13 +1086,13 @@ impl Bytecode {
         field: ConstPoolIndex<ConstFieldRefInfo>,
         fat: bool,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
-        self.stack_update(Self::slot_size(fat), 0)
-            .and(self.push_instr(0xb3))
-            .and(self.push_ops(&field.as_bytes()))
+        self
+            .stack_update(Self::slot_size(fat), 0)
+            .and(self.push_instr_ops(0xb3, &field.as_bytes()))
     }
 
     pub fn instr_ret(&mut self, index: u8) -> Result<BytecodeOffset, BytecodeUpdateError> {
-        self.push_instr(0xa9).and(self.push_ops(&[index]))
+        self.push_instr_ops(0xa9, &[index])
     }
 
     pub fn instr_return(&mut self) -> Result<BytecodeOffset, BytecodeUpdateError> {
@@ -1073,8 +1109,7 @@ impl Bytecode {
 
     pub fn instr_sipush(&mut self, value: u16) -> Result<BytecodeOffset, BytecodeUpdateError> {
         self.stack_update(0, 1)
-            .and(self.push_instr(0x56))
-            .and(self.push_ops(&value.to_be_bytes()))
+            .and(self.push_instr_ops(0x56, &value.to_be_bytes()))
     }
 
     pub fn instr_swap(&mut self) -> Result<BytecodeOffset, BytecodeUpdateError> {

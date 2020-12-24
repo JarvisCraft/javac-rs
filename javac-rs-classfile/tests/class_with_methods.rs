@@ -169,12 +169,89 @@ fn class_file_with_hello_world_main_method() {
         // return
         bytecode.instr_return().unwrap();
 
-        println!("Bytecode: {:?}", bytecode);
         class.method_add_code_attribute(method, bytecode).unwrap();
     }
 
     class_testing::dump_class(
         class,
         "ru/progrm_jarvis/javacrs/ClassWithHelloWorldMainMethod.class",
+    );
+}
+
+// currently stack frame attributes are not set thus the class should be run using `-noverify`
+#[test]
+fn class_file_with_naive_loop_in_main_method() {
+    let mut class = Class::new(
+        ClassfileVersion::of_major(major_versions::JAVA_14),
+        ClassAccessFlag::Public | ClassAccessFlag::Final | ClassAccessFlag::Super,
+        String::from("ru/progrm_jarvis/javacrs/ClassWithNaiveLoopInMainMethod"),
+        String::from("java/lang/Object"),
+    );
+    class
+        .add_interface(String::from("java/io/Serializable"))
+        .unwrap();
+    {
+        let method = class
+            .add_method(
+                MethodAccessFlag::Public | MethodAccessFlag::Static,
+                String::from("main"),
+                String::from("([Ljava/lang/String;)V"),
+            )
+            .unwrap();
+        let mut bytecode = Bytecode::new(2);
+        let mut const_pool = class.const_pool_mut();
+
+        // bipush 6
+        bytecode.instr_bipush(6);
+        // istore 1
+        bytecode.instr_istore(1);
+
+        // iinc 1 -1
+        let loop_head = bytecode.instr_iinc(1, -1).unwrap();
+
+        // getstatic System.out
+        bytecode
+            .instr_getstatic(
+                const_pool
+                    .store_const_field_ref_info(
+                        "java/lang/System".to_string(),
+                        "out".to_string(),
+                        "Ljava/io/PrintStream;".to_string(),
+                    )
+                    .unwrap(),
+                false,
+            )
+            .unwrap();
+
+        // iload 1
+        bytecode.instr_iload(1).unwrap();
+        // dup_x1
+        bytecode.instr_dup_x1().unwrap();
+        // invokevirtual PrintStream#println(int)
+        bytecode
+            .instr_invokevirtual(
+                const_pool
+                    .store_const_method_ref_info(
+                        "java/io/PrintStream".to_string(),
+                        "println".to_string(),
+                        "(I)V".to_string(),
+                    )
+                    .unwrap(),
+                1,
+            )
+            .unwrap();
+
+        // ifne #loop_head
+        bytecode.instr_ifne(loop_head);
+
+        // return
+        bytecode.instr_return().unwrap();
+
+        class.method_add_code_attribute(method, bytecode).unwrap();
+    }
+
+    class_testing::dump_class(
+        class,
+        "ru/progrm_jarvis/javacrs/ClassWithNaiveLoopInMainMethod.class",
     );
 }
