@@ -1,9 +1,8 @@
-use javac_rs_classfile::{
-    major_versions, Bytecode, Class, ClassAccessFlag, ClassfileVersion, ClassfileWritable,
-    ConstValue, JvmVecU4, MethodAccessFlag,
-};
 use std::convert::TryFrom;
-use std::fs::File;
+
+use javac_rs_classfile::{
+    Bytecode, Class, ClassAccessFlag, ClassfileVersion, JvmVecU4, major_versions, MethodAccessFlag,
+};
 
 mod class_testing;
 
@@ -28,8 +27,8 @@ fn class_file_with_method_without_attributes() {
 
     class_testing::dump_class(
         class,
-        "ru/progrm_jarvis/javacrs/TestClassWithMethodWithoutAttributes.class",
-    );
+        "ru.progrm_jarvis.javacrs.TestClassWithMethodWithoutAttributes".to_string(),
+    ).unwrap().run();
 }
 
 #[test]
@@ -68,11 +67,12 @@ fn class_file_with_method_with_various_attributes() {
             )
             .unwrap();
     }
+    let class = class;
 
     class_testing::dump_class(
         class,
-        "ru/progrm_jarvis/javacrs/TestClassWithVariousAttributes.class",
-    );
+        "ru.progrm_jarvis.javacrs.TestClassWithVariousAttributes".to_string(),
+    ).unwrap().assert_disasmable();
 }
 
 #[test]
@@ -100,11 +100,12 @@ fn class_file_with_method_with_code_attribute() {
         println!("Bytecode: {:?}", bytecode);
         class.method_add_code_attribute(method, bytecode);
     }
+    let class = class;
 
     class_testing::dump_class(
         class,
-        "ru/progrm_jarvis/javacrs/TestClassWithCodeAttribute.class",
-    );
+        "ru.progrm_jarvis.javacrs.TestClassWithCodeAttribute".to_string(),
+    ).unwrap().assert_disasmable();
 }
 
 #[test]
@@ -171,11 +172,17 @@ fn class_file_with_hello_world_main_method() {
 
         class.method_add_code_attribute(method, bytecode).unwrap();
     }
+    let class = class;
 
-    class_testing::dump_class(
+    let result = class_testing::dump_class(
         class,
-        "ru/progrm_jarvis/javacrs/ClassWithHelloWorldMainMethod.class",
-    );
+        "ru.progrm_jarvis.javacrs.ClassWithHelloWorldMainMethod".to_string(),
+    )
+        .unwrap()
+        .run()
+        .unwrap();
+    assert_eq!(result.status.code().expect("Process terminated with signal"), 0);
+    assert_eq!(result.stdout, b"Hello world!\n");
 }
 
 // currently stack frame attributes are not set thus the class should be run using `-noverify`
@@ -249,9 +256,30 @@ fn class_file_with_naive_loop_in_main_method() {
 
         class.method_add_code_attribute(method, bytecode).unwrap();
     }
+    let class = class;
 
-    class_testing::dump_class(
+    let result = class_testing::dump_class(
         class,
-        "ru/progrm_jarvis/javacrs/ClassWithNaiveLoopInMainMethod.class",
+        "ru.progrm_jarvis.javacrs.ClassWithNaiveLoopInMainMethod".to_string(),
+    )
+        .unwrap()
+        .run_with_args(&["-noverify"])
+        .unwrap();
+    assert_eq!(
+        result
+            .status
+            .code()
+            .expect("Process terminated with signal"),
+        0
+    );
+    assert_eq!(
+        result.stdout,
+        b"5\n\
+        4\n\
+        3\n\
+        2\n\
+        1\n\
+        0\n\
+        "
     );
 }

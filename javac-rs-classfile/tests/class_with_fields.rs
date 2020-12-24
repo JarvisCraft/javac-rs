@@ -1,9 +1,12 @@
-use javac_rs_classfile::{
-    major_versions, Class, ClassAccessFlag, ClassfileVersion, ClassfileWritable, ConstValue,
-    FieldAccessFlag, FieldDescriptor, JvmVecU4,
-};
 use std::convert::TryFrom;
 use std::fs::File;
+
+use javac_rs_classfile::{
+    Class, ClassAccessFlag, ClassfileVersion, ClassfileWritable, ConstValue, FieldAccessFlag,
+    FieldDescriptor, JvmVecU4, major_versions,
+};
+
+mod class_testing;
 
 #[test]
 fn class_file_with_field_without_attributes() {
@@ -23,12 +26,14 @@ fn class_file_with_field_without_attributes() {
             FieldDescriptor::Int,
         )
         .unwrap();
+    let class = class;
 
-    let mut file =
-        File::create("ru/progrm_jarvis/javacrs/TestClassWithFieldWithoutAttributes.class").unwrap();
-    println!("{:#?}", class);
-    class.write_to_classfile(&mut file);
-    println!("Written to file: {:#?}", file);
+    class_testing::dump_class(
+        class,
+        "ru.progrm_jarvis.javacrs.TestClassWithFieldWithoutAttributes".to_string(),
+    )
+        .unwrap()
+        .assert_disasmable();
 }
 
 #[test]
@@ -52,12 +57,14 @@ fn class_file_with_field_with_const_value_attribute() {
             .unwrap();
         class.field_add_const_value_attribute(field, ConstValue::Integer(123));
     }
+    let class = class;
 
-    let mut file =
-        File::create("ru/progrm_jarvis/javacrs/TestClassWithConstValueAttribute.class").unwrap();
-    println!("{:#?}", class);
-    class.write_to_classfile(&mut file);
-    println!("Written to file: {:#?}", file);
+    class_testing::dump_class(
+        class,
+        "ru.progrm_jarvis.javacrs.TestClassWithConstValueAttribute".to_string(),
+    )
+        .unwrap()
+        .assert_disasmable();
 }
 
 #[test]
@@ -97,10 +104,12 @@ fn class_file_with_field_with_various_attributes() {
             )
             .unwrap();
     }
+    let class = class;
 
-    let mut file =
-        File::create("ru/progrm_jarvis/javacrs/TestClassWithVariousAttributes.class").unwrap();
-    println!("{:#?}", class);
-    class.write_to_classfile(&mut file);
-    println!("Written to file: {:#?}", file);
+    class_testing::dump_class(
+        class,
+        "ru.progrm_jarvis.javacrs.TestClassWithVariousAttributes".to_string(),
+    )
+        .unwrap()
+        .assert_disasmable();
 }

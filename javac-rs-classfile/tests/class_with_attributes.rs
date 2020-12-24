@@ -1,6 +1,9 @@
-use javac_rs_classfile::*;
 use std::convert::TryFrom;
 use std::fs::File;
+
+use javac_rs_classfile::*;
+
+mod class_testing;
 
 #[test]
 fn class_file_with_source_file_attribute() {
@@ -17,11 +20,12 @@ fn class_file_with_source_file_attribute() {
         .unwrap();
     let class = class;
 
-    let mut file =
-        File::create("ru/progrm_jarvis/javacrs/TestClassWithSourceFileAttribute.class").unwrap();
-    println!("{:#?}", class);
-    class.write_to_classfile(&mut file);
-    println!("Written to file: {:#?}", file);
+    class_testing::dump_class(
+        class,
+        "ru.progrm_jarvis.javacrs.TestClassWithSourceFileAttribute".to_string(),
+    )
+        .unwrap()
+        .assert_disasmable();
 }
 
 #[test]
@@ -35,11 +39,12 @@ fn class_file_with_synthetic_attribute() {
     class.add_synthetic_attribute().unwrap();
     let class = class;
 
-    let mut file =
-        File::create("ru/progrm_jarvis/javacrs/TestClassWithSyntheticAttribute.class").unwrap();
-    println!("{:#?}", class);
-    class.write_to_classfile(&mut file);
-    println!("Written to file: {:#?}", file);
+    class_testing::dump_class(
+        class,
+        "ru.progrm_jarvis.javacrs.TestClassWithSyntheticAttribute".to_string(),
+    )
+        .unwrap()
+        .assert_disasmable();
 }
 
 #[test]
@@ -53,11 +58,12 @@ fn class_file_with_deprecated_attribute() {
     class.add_deprecated_attribute().unwrap();
     let class = class;
 
-    let mut file =
-        File::create("ru/progrm_jarvis/javacrs/TestClassWithDeprecatedAttribute.class").unwrap();
-    println!("{:#?}", class);
-    class.write_to_classfile(&mut file);
-    println!("Written to file: {:#?}", file);
+    class_testing::dump_class(
+        class,
+        "ru.progrm_jarvis.javacrs.TestClassWithDeprecatedAttribute".to_string(),
+    )
+        .unwrap()
+        .assert_disasmable();
 }
 
 #[test]
@@ -73,11 +79,12 @@ fn class_file_with_signature_attribute() {
         .unwrap();
     let class = class;
 
-    let mut file =
-        File::create("ru/progrm_jarvis/javacrs/TestClassWithSignatureAttribute.class").unwrap();
-    println!("{:#?}", class);
-    class.write_to_classfile(&mut file);
-    println!("Written to file: {:#?}", file);
+    class_testing::dump_class(
+        class,
+        "ru.progrm_jarvis.javacrs.TestClassWithSignatureAttribute".to_string(),
+    )
+        .unwrap()
+        .assert_disasmable();
 }
 
 #[test]
@@ -96,11 +103,12 @@ fn class_file_with_single_custom_attribute() {
         .unwrap();
     let class = class;
 
-    let mut file =
-        File::create("ru/progrm_jarvis/javacrs/TestClassWithSingleCustomAttribute.class").unwrap();
-    println!("{:#?}", class);
-    class.write_to_classfile(&mut file);
-    println!("Written to file: {:#?}", file);
+    class_testing::dump_class(
+        class,
+        "ru.progrm_jarvis.javacrs.TestClassWithSingleCustomAttribute".to_string(),
+    )
+        .unwrap()
+        .assert_disasmable();
 }
 
 #[test]
@@ -125,10 +133,10 @@ fn class_file_with_multiple_custom_attributes() {
         .unwrap();
     let class = class;
 
-    let mut file =
-        File::create("ru/progrm_jarvis/javacrs/TestClassWithMultipleCustomAttributes.class")
-            .unwrap();
-    println!("{:#?}", class);
-    class.write_to_classfile(&mut file);
-    println!("Written to file: {:#?}", file);
+    class_testing::dump_class(
+        class,
+        "ru.progrm_jarvis.javacrs.TestClassWithMultipleCustomAttributes".to_string(),
+    )
+        .unwrap()
+        .assert_disasmable();
 }

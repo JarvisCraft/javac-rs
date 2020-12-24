@@ -11,7 +11,6 @@ use crate::{
 };
 use std::cmp::max;
 
-use std::fs::read_to_string;
 use std::num::NonZeroU8;
 use thiserror::Error;
 
