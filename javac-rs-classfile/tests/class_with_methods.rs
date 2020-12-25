@@ -1,7 +1,8 @@
 use std::convert::TryFrom;
 
 use javac_rs_classfile::{
-    Bytecode, Class, ClassAccessFlag, ClassfileVersion, JvmVecU4, major_versions, MethodAccessFlag,
+    major_versions, Bytecode, Class, ClassAccessFlag, ClassAccessFlags, ClassfileVersion, JvmVecU4,
+    MethodAccessFlag, MethodAccessFlags,
 };
 
 mod class_testing;
@@ -28,7 +29,9 @@ fn class_file_with_method_without_attributes() {
     class_testing::dump_class(
         class,
         "ru.progrm_jarvis.javacrs.TestClassWithMethodWithoutAttributes".to_string(),
-    ).unwrap().run();
+    )
+    .unwrap()
+    .run();
 }
 
 #[test]
@@ -72,7 +75,9 @@ fn class_file_with_method_with_various_attributes() {
     class_testing::dump_class(
         class,
         "ru.progrm_jarvis.javacrs.TestClassWithVariousAttributes".to_string(),
-    ).unwrap().assert_disasmable();
+    )
+    .unwrap()
+    .assert_disasmable();
 }
 
 #[test]
@@ -105,7 +110,9 @@ fn class_file_with_method_with_code_attribute() {
     class_testing::dump_class(
         class,
         "ru.progrm_jarvis.javacrs.TestClassWithCodeAttribute".to_string(),
-    ).unwrap().assert_disasmable();
+    )
+    .unwrap()
+    .assert_disasmable();
 }
 
 #[test]
@@ -178,10 +185,16 @@ fn class_file_with_hello_world_main_method() {
         class,
         "ru.progrm_jarvis.javacrs.ClassWithHelloWorldMainMethod".to_string(),
     )
-        .unwrap()
-        .run()
-        .unwrap();
-    assert_eq!(result.status.code().expect("Process terminated with signal"), 0);
+    .unwrap()
+    .run()
+    .unwrap();
+    assert_eq!(
+        result
+            .status
+            .code()
+            .expect("Process terminated with signal"),
+        0
+    );
     assert_eq!(result.stdout, b"Hello world!\n");
 }
 
@@ -262,9 +275,9 @@ fn class_file_with_naive_loop_in_main_method() {
         class,
         "ru.progrm_jarvis.javacrs.ClassWithNaiveLoopInMainMethod".to_string(),
     )
-        .unwrap()
-        .run_with_args(&["-noverify"])
-        .unwrap();
+    .unwrap()
+    .run_with_args(&["-noverify"])
+    .unwrap();
     assert_eq!(
         result
             .status
@@ -282,4 +295,27 @@ fn class_file_with_naive_loop_in_main_method() {
         0\n\
         "
     );
+}
+
+#[test]
+fn class_with_parameter_usage_in_main_method() {
+    let mut class = Class::new(
+        ClassfileVersion::of_major(major_versions::JAVA_14),
+        ClassAccessFlag::Public | ClassAccessFlag::Final | ClassAccessFlag::Super,
+        "ru/progrm_jarvis/javacrs/SimpleClassWithParameterUsage".to_string(),
+        "java/lang/Object".to_string(),
+    );
+
+    {
+        let mut method = class.add_method(
+            MethodAccessFlag::Public | MethodAccessFlag::Static | MethodAccessFlag::Varargs,
+            "main".to_string(),
+            "(Ljava/lang/String;)V".to_string(),
+        );
+
+        let mut bytecode = Bytecode::new(1);
+        bytecode.instr_aload(0).unwrap();
+        bytecode.instr_arraylength().unwrap();
+        bytecode.instr_if_icmpeq()
+    }
 }
