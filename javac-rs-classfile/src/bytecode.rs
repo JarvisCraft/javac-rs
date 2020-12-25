@@ -1022,11 +1022,8 @@ impl Bytecode {
         dimensions: NonZeroU8,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
         let dimensions = dimensions.get();
-        self.stack_update(dimensions as u16, 1).and(self.push_instr_ops_2(
-            0x19,
-            &component_type.to_be_bytes(),
-            &[dimensions],
-        ))
+        self.stack_update(dimensions as u16, 1)
+            .and(self.push_instr_ops_2(0x19, &component_type.to_be_bytes(), &[dimensions]))
     }
 
     pub fn instr_new(
@@ -1055,7 +1052,7 @@ impl Bytecode {
             }
         };
         self.stack_update(0, 1)
-            .and(self.push_instr_ops(0xbc,&[component_type]))
+            .and(self.push_instr_ops(0xbc, &[component_type]))
     }
 
     pub fn instr_nop(&mut self) -> Result<BytecodeOffset, BytecodeUpdateError> {
@@ -1075,8 +1072,7 @@ impl Bytecode {
         field: ConstPoolIndex<ConstFieldRefInfo>,
         fat: bool,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
-        self
-            .stack_update(1 + Self::slot_size(fat), 0)
+        self.stack_update(1 + Self::slot_size(fat), 0)
             .and(self.push_instr_ops(0xb5, &field.as_bytes()))
     }
 
@@ -1085,8 +1081,7 @@ impl Bytecode {
         field: ConstPoolIndex<ConstFieldRefInfo>,
         fat: bool,
     ) -> Result<BytecodeOffset, BytecodeUpdateError> {
-        self
-            .stack_update(Self::slot_size(fat), 0)
+        self.stack_update(Self::slot_size(fat), 0)
             .and(self.push_instr_ops(0xb3, &field.as_bytes()))
     }
 

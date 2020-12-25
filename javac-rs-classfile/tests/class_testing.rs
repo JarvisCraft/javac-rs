@@ -20,7 +20,7 @@ impl ClassTester {
         Ok(Command::new("java").arg(&self.class_name).output()?)
     }
 
-    pub fn run_with_args<I: IntoIterator<Item=S>, S: AsRef<OsStr>>(
+    pub fn run_with_args<I: IntoIterator<Item = S>, S: AsRef<OsStr>>(
         &self,
         args: I,
     ) -> io::Result<Output> {
@@ -34,7 +34,7 @@ impl ClassTester {
         Command::new("javap").arg(&self.class_name).output()
     }
 
-    pub fn disasm_with_args<I: IntoIterator<Item=S>, S: AsRef<OsStr>>(
+    pub fn disasm_with_args<I: IntoIterator<Item = S>, S: AsRef<OsStr>>(
         &self,
         args: I,
     ) -> io::Result<Output> {

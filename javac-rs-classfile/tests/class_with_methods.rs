@@ -296,26 +296,3 @@ fn class_file_with_naive_loop_in_main_method() {
         "
     );
 }
-
-#[test]
-fn class_with_parameter_usage_in_main_method() {
-    let mut class = Class::new(
-        ClassfileVersion::of_major(major_versions::JAVA_14),
-        ClassAccessFlag::Public | ClassAccessFlag::Final | ClassAccessFlag::Super,
-        "ru/progrm_jarvis/javacrs/SimpleClassWithParameterUsage".to_string(),
-        "java/lang/Object".to_string(),
-    );
-
-    {
-        let mut method = class.add_method(
-            MethodAccessFlag::Public | MethodAccessFlag::Static | MethodAccessFlag::Varargs,
-            "main".to_string(),
-            "(Ljava/lang/String;)V".to_string(),
-        );
-
-        let mut bytecode = Bytecode::new(1);
-        bytecode.instr_aload(0).unwrap();
-        bytecode.instr_arraylength().unwrap();
-        bytecode.instr_if_icmpeq()
-    }
-}

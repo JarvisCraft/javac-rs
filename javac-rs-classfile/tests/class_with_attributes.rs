@@ -24,8 +24,8 @@ fn class_file_with_source_file_attribute() {
         class,
         "ru.progrm_jarvis.javacrs.TestClassWithSourceFileAttribute".to_string(),
     )
-        .unwrap()
-        .assert_disasmable();
+    .unwrap()
+    .assert_disasmable();
 }
 
 #[test]
@@ -43,8 +43,8 @@ fn class_file_with_synthetic_attribute() {
         class,
         "ru.progrm_jarvis.javacrs.TestClassWithSyntheticAttribute".to_string(),
     )
-        .unwrap()
-        .assert_disasmable();
+    .unwrap()
+    .assert_disasmable();
 }
 
 #[test]
@@ -62,8 +62,8 @@ fn class_file_with_deprecated_attribute() {
         class,
         "ru.progrm_jarvis.javacrs.TestClassWithDeprecatedAttribute".to_string(),
     )
-        .unwrap()
-        .assert_disasmable();
+    .unwrap()
+    .assert_disasmable();
 }
 
 #[test]
@@ -83,8 +83,8 @@ fn class_file_with_signature_attribute() {
         class,
         "ru.progrm_jarvis.javacrs.TestClassWithSignatureAttribute".to_string(),
     )
-        .unwrap()
-        .assert_disasmable();
+    .unwrap()
+    .assert_disasmable();
 }
 
 #[test]
@@ -107,8 +107,8 @@ fn class_file_with_single_custom_attribute() {
         class,
         "ru.progrm_jarvis.javacrs.TestClassWithSingleCustomAttribute".to_string(),
     )
-        .unwrap()
-        .assert_disasmable();
+    .unwrap()
+    .assert_disasmable();
 }
 
 #[test]
@@ -137,6 +137,6 @@ fn class_file_with_multiple_custom_attributes() {
         class,
         "ru.progrm_jarvis.javacrs.TestClassWithMultipleCustomAttributes".to_string(),
     )
-        .unwrap()
-        .assert_disasmable();
+    .unwrap()
+    .assert_disasmable();
 }

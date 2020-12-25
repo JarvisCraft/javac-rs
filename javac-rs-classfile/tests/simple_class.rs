@@ -13,10 +13,7 @@ fn class_file() {
         String::from("java/lang/Object"),
     );
 
-    class_testing::dump_class(
-        class,
-        "ru.progrm_jarvis.javacrs.TestClass".to_string(),
-    )
+    class_testing::dump_class(class, "ru.progrm_jarvis.javacrs.TestClass".to_string())
         .unwrap()
         .assert_disasmable();
 }
@@ -36,8 +33,8 @@ fn class_file_with_single_interface() {
         class,
         "ru.progrm_jarvis.javacrs.TestClassWithSingleInterface".to_string(),
     )
-        .unwrap()
-        .assert_disasmable();
+    .unwrap()
+    .assert_disasmable();
 }
 
 #[test]
@@ -56,6 +53,6 @@ fn class_file_with_multiple_interface() {
         class,
         "ru.progrm_jarvis.javacrs.TestClassWithMultipleInterfaces".to_string(),
     )
-        .unwrap()
-        .assert_disasmable();
+    .unwrap()
+    .assert_disasmable();
 }

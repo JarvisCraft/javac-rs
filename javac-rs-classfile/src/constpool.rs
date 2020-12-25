@@ -194,7 +194,7 @@ impl ConstPool {
     ///
     /// * `index` - index at which to try to get the entry
     fn entry_at<T: ConstPoolEntryInfo>(&self, index: ConstPoolIndex<T>) -> Option<&ConstPoolEntry> {
-        self.entries.get(index.0.0)
+        self.entries.get(index.0 .0)
     }
 
     /// Gets the size of this const pool as `u16` which corresponds to its VM-type.
@@ -936,13 +936,25 @@ mod tests {
     fn test_const_pool_insert_balancing() {
         let mut const_pool = ConstPool::new();
         assert_eq!(
-            const_pool.store_entry_info(ConstIntegerInfo { value: 123 }).unwrap().as_u16(), 1u16
+            const_pool
+                .store_entry_info(ConstIntegerInfo { value: 123 })
+                .unwrap()
+                .as_u16(),
+            1u16
         );
         assert_eq!(
-            const_pool.store_entry_info(ConstIntegerInfo { value: 123 }).unwrap().as_u16(), 1u16
+            const_pool
+                .store_entry_info(ConstIntegerInfo { value: 123 })
+                .unwrap()
+                .as_u16(),
+            1u16
         );
         assert_eq!(
-            const_pool.store_entry_info(ConstIntegerInfo { value: 456 }).unwrap().as_u16(), 2u16
+            const_pool
+                .store_entry_info(ConstIntegerInfo { value: 456 })
+                .unwrap()
+                .as_u16(),
+            2u16
         );
     }
 }

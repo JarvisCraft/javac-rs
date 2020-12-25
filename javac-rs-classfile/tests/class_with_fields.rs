@@ -2,8 +2,8 @@ use std::convert::TryFrom;
 use std::fs::File;
 
 use javac_rs_classfile::{
-    Class, ClassAccessFlag, ClassfileVersion, ClassfileWritable, ConstValue, FieldAccessFlag,
-    FieldDescriptor, JvmVecU4, major_versions,
+    major_versions, Class, ClassAccessFlag, ClassfileVersion, ClassfileWritable, ConstValue,
+    FieldAccessFlag, FieldDescriptor, JvmVecU4,
 };
 
 mod class_testing;
@@ -32,8 +32,8 @@ fn class_file_with_field_without_attributes() {
         class,
         "ru.progrm_jarvis.javacrs.TestClassWithFieldWithoutAttributes".to_string(),
     )
-        .unwrap()
-        .assert_disasmable();
+    .unwrap()
+    .assert_disasmable();
 }
 
 #[test]
@@ -63,8 +63,8 @@ fn class_file_with_field_with_const_value_attribute() {
         class,
         "ru.progrm_jarvis.javacrs.TestClassWithConstValueAttribute".to_string(),
     )
-        .unwrap()
-        .assert_disasmable();
+    .unwrap()
+    .assert_disasmable();
 }
 
 #[test]
@@ -110,6 +110,6 @@ fn class_file_with_field_with_various_attributes() {
         class,
         "ru.progrm_jarvis.javacrs.TestClassWithVariousAttributes".to_string(),
     )
-        .unwrap()
-        .assert_disasmable();
+    .unwrap()
+    .assert_disasmable();
 }
