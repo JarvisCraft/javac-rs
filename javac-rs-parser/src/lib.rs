@@ -1,10 +1,5 @@
 //! Utilities for parsing Java language AST (Abstract Syntax Tree)
 
-#[allow(clippy::panic)]
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+mod parser;
+
+pub use parser::*;
